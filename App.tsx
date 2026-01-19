@@ -10,6 +10,7 @@ import Notes from './components/Notes';
 import QuizGenerator from './components/QuizGenerator';
 import FocusTimer from './components/FocusTimer';
 import Settings from './components/Settings';
+import SyllabusTracker from './components/SyllabusTracker';
 import { AppSettings } from './types';
 
 const App: React.FC = () => {
@@ -40,6 +41,7 @@ const App: React.FC = () => {
       <main className="flex-1 p-4 lg:p-8 overflow-y-auto h-screen">
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/syllabus" element={<SyllabusTracker />} />
           <Route path="/planner" element={<Planner />} />
           <Route path="/resources" element={<ResourceLibrary />} />
           <Route path="/flashcards" element={<Flashcards />} />

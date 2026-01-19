@@ -6,6 +6,19 @@ export interface Task {
   dueDate?: string;
 }
 
+export interface Topic {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+export interface Syllabus {
+  id: string;
+  subject: string;
+  topics: Topic[];
+  color: string;
+}
+
 export interface Flashcard {
   id: string;
   deckId: string;

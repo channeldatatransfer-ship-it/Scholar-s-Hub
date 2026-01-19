@@ -1,16 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   Flame, 
   Clock, 
   CheckCircle2, 
   Plus,
-  Zap
+  Zap,
+  BookOpen
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
+import { Syllabus } from '../types';
 
 const Dashboard: React.FC = () => {
   const [tasks, setTasks] = useState([
@@ -19,11 +21,28 @@ const Dashboard: React.FC = () => {
     { id: '3', title: 'Prepare Physics Mock', completed: false },
   ]);
 
+  const [syllabuses, setSyllabuses] = useState<Syllabus[]>([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('scholars_syllabuses');
+    if (saved) setSyllabuses(JSON.parse(saved));
+  }, []);
+
+  const getProgress = (syllabus: Syllabus) => {
+    if (syllabus.topics.length === 0) return 0;
+    const completed = syllabus.topics.filter(t => t.completed).length;
+    return Math.round((completed / syllabus.topics.length) * 100);
+  };
+
+  const totalTopics = syllabuses.flatMap(s => s.topics).length;
+  const completedTopics = syllabuses.flatMap(s => s.topics).filter(t => t.completed).length;
+  const overallProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+
   const stats = [
     { label: 'Study Streak', value: '12 Days', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-50' },
     { label: 'Time Studied', value: '42.5 hrs', icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
     { label: 'Quiz Score', value: '88%', icon: Trophy, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-    { label: 'Tasks Done', value: '18/24', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { label: 'Overall Progress', value: `${overallProgress}%`, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   ];
 
   const studyData = [
@@ -97,22 +116,34 @@ const Dashboard: React.FC = () => {
           </section>
 
           <section className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
-            <h2 className="text-xl font-bold mb-6 dark:text-white">Next Scheduled Event</h2>
-            <div className="flex items-center gap-6 p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800">
-              <div className="bg-indigo-600 text-white p-4 rounded-xl text-center min-w-[80px]">
-                <p className="text-xs uppercase font-bold opacity-80">MAY</p>
-                <p className="text-2xl font-bold">24</p>
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg dark:text-white">Chemistry Practical Exam</h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm flex items-center gap-2">
-                   <Clock className="w-4 h-4" /> 09:00 AM - 12:00 PM • Lab 3
-                </p>
-              </div>
-              <button className="p-3 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-colors">
-                 <Plus className="text-indigo-600" />
-              </button>
-            </div>
+             <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold dark:text-white">Syllabus Health</h2>
+                <button className="text-xs font-bold text-indigo-600 uppercase tracking-widest hover:underline">View Roadmap</button>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {syllabuses.slice(0, 4).map(s => {
+                  const progress = getProgress(s);
+                  return (
+                    <div key={s.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-700">
+                       <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold text-sm dark:text-white">{s.subject}</span>
+                          <span className="text-xs font-bold text-slate-400">{progress}%</span>
+                       </div>
+                       <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full bg-indigo-500 transition-all duration-1000`}
+                            style={{ width: `${progress}%` }}
+                          ></div>
+                       </div>
+                    </div>
+                  );
+                })}
+                {syllabuses.length === 0 && (
+                  <div className="col-span-full py-6 text-center text-slate-400 text-sm italic">
+                    No syllabuses tracked yet.
+                  </div>
+                )}
+             </div>
           </section>
         </div>
 
