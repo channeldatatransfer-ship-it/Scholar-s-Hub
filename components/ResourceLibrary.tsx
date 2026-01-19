@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Folder, 
-  File, 
+  File as FileIcon, 
   Search, 
   Upload, 
   Grid, 
@@ -12,7 +12,10 @@ import {
   MoreVertical,
   ChevronRight,
   Download,
-  Eye
+  Eye,
+  RefreshCw,
+  X,
+  FileText
 } from 'lucide-react';
 
 interface FileItem {
@@ -44,6 +47,15 @@ const ResourceLibrary: React.FC = () => {
     { id: 'd2', name: 'Project_Assets', size: '-', type: 'folder', modified: '3 days ago' },
   ];
 
+  // Handle ESC key for accessibility
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewUrl(null);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('scholars_local_files', JSON.stringify(localFiles));
   }, [localFiles]);
@@ -70,22 +82,26 @@ const ResourceLibrary: React.FC = () => {
       };
 
       setLocalFiles(prev => [...prev, newFile]);
-      // Reset input so the same file can be uploaded again if deleted
-      e.target.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const deleteFile = (id: string) => {
-    setLocalFiles(prev => prev.filter(f => f.id !== id));
+  const deleteFile = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (confirm("Remove this file from your local library?")) {
+      setLocalFiles(prev => prev.filter(f => f.id !== id));
+    }
   };
 
   const files = activeTab === 'local' ? localFiles : driveFiles;
 
   const openPreview = (file: FileItem) => {
     if (file.type === 'folder') return;
-    // Use the file's blob URL if it exists (for newly uploaded), 
-    // otherwise use the dummy PDF for persistent session simulation
     setPreviewUrl(file.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf');
+  };
+
+  const handleActionClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
   };
 
   return (
@@ -100,7 +116,7 @@ const ResourceLibrary: React.FC = () => {
             onClick={() => setActiveTab('local')}
             className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'local' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
            >
-             <File className="w-4 h-4" /> Local Files
+             <FileIcon className="w-4 h-4" /> Local Files
            </button>
            <button 
             onClick={() => setActiveTab('drive')}
@@ -136,19 +152,30 @@ const ResourceLibrary: React.FC = () => {
                    <List className="w-5 h-5" />
                  </button>
               </div>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="application/pdf" 
-                onChange={handleFileUpload}
-              />
-              <button 
-                onClick={handleUploadClick}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-md transition-all active:scale-95"
-              >
-                <Upload className="w-5 h-5" /> Upload PDF
-              </button>
+
+              {activeTab === 'local' ? (
+                <>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="application/pdf" 
+                    onChange={handleFileUpload}
+                  />
+                  <button 
+                    onClick={handleUploadClick}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-md transition-all active:scale-95 animate-in fade-in zoom-in"
+                  >
+                    <Upload className="w-5 h-5" /> Upload PDF
+                  </button>
+                </>
+              ) : (
+                <button 
+                  className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-indigo-100 transition-all active:scale-95 animate-in fade-in zoom-in"
+                >
+                  <RefreshCw className="w-5 h-5" /> Sync Drive
+                </button>
+              )}
            </div>
         </div>
 
@@ -156,32 +183,43 @@ const ResourceLibrary: React.FC = () => {
            {view === 'grid' ? (
              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {files.map(file => (
-                  <div key={file.id} className="group relative flex flex-col items-center text-center p-6 rounded-3xl border border-transparent hover:border-slate-100 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all">
+                  <div 
+                    key={file.id} 
+                    onClick={() => openPreview(file)}
+                    className="group relative flex flex-col items-center text-center p-6 rounded-3xl border border-transparent hover:border-slate-100 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all cursor-pointer overflow-hidden"
+                  >
                     <div className="mb-4 relative">
                        {file.type === 'folder' ? (
                          <Folder className="w-16 h-16 text-indigo-400 fill-indigo-50" />
                        ) : (
-                         <File className="w-16 h-16 text-slate-300" />
+                         <FileText className="w-16 h-16 text-slate-300" />
                        )}
-                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                         <button 
-                           onClick={() => openPreview(file)}
-                           className="bg-indigo-600 p-2 rounded-full text-white shadow-lg"
-                          >
-                           <Eye className="w-4 h-4" />
-                         </button>
-                       </div>
+                       {file.type !== 'folder' && (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="bg-indigo-600 p-2 rounded-full text-white shadow-lg transform hover:scale-110 transition-transform">
+                            <Eye className="w-4 h-4" />
+                          </div>
+                        </div>
+                       )}
                     </div>
                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200 line-clamp-1 mb-1">{file.name}</p>
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">{file.size} • {file.modified}</p>
-                    <button className="absolute top-4 right-4 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4 text-slate-400" />
-                    </button>
+                    {activeTab === 'local' && (
+                      <button 
+                        onClick={(e) => deleteFile(e, file.id)}
+                        className="absolute top-4 right-4 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-rose-500"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 ))}
                 {files.length === 0 && (
                   <div className="col-span-full py-20 text-center">
-                    <p className="text-slate-400 font-medium">No files found in this section.</p>
+                    <div className="inline-flex p-6 bg-slate-50 dark:bg-slate-900 rounded-full mb-4">
+                       <FileIcon className="w-12 h-12 text-slate-200" />
+                    </div>
+                    <p className="text-slate-400 font-medium">No files found in your {activeTab} storage.</p>
                   </div>
                 )}
              </div>
@@ -198,10 +236,14 @@ const ResourceLibrary: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
                     {files.map(file => (
-                      <tr key={file.id} className="group hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                      <tr 
+                        key={file.id} 
+                        onClick={() => openPreview(file)}
+                        className="group hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors cursor-pointer"
+                      >
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-3">
-                            {file.type === 'folder' ? <Folder className="w-5 h-5 text-indigo-400" /> : <File className="w-5 h-5 text-slate-400" />}
+                            {file.type === 'folder' ? <Folder className="w-5 h-5 text-indigo-400" /> : <FileText className="w-5 h-5 text-slate-400" />}
                             <span className="font-medium text-slate-700 dark:text-slate-200">{file.name}</span>
                           </div>
                         </td>
@@ -210,16 +252,21 @@ const ResourceLibrary: React.FC = () => {
                         <td className="py-4 px-4 text-right">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                              <button 
-                                onClick={() => openPreview(file)}
+                                onClick={(e) => { e.stopPropagation(); openPreview(file); }}
                                 className="p-2 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-600"
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
-                             <button className="p-2 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-600"><Download className="w-4 h-4" /></button>
+                             <button 
+                                onClick={handleActionClick}
+                                className="p-2 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-600"
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
                              {activeTab === 'local' && (
                                <button 
-                                onClick={() => deleteFile(file.id)}
-                                className="p-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg text-rose-400"
+                                onClick={(e) => deleteFile(e, file.id)}
+                                className="p-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg text-rose-400 hover:text-rose-600"
                                >
                                  <MoreVertical className="w-4 h-4" />
                                </button>
@@ -232,7 +279,7 @@ const ResourceLibrary: React.FC = () => {
                </table>
                {files.length === 0 && (
                  <div className="py-20 text-center">
-                   <p className="text-slate-400 font-medium">No files found in this section.</p>
+                   <p className="text-slate-400 font-medium">No files found in your {activeTab} storage.</p>
                  </div>
                )}
              </div>
@@ -242,22 +289,34 @@ const ResourceLibrary: React.FC = () => {
 
       {/* PDF Preview Modal */}
       {previewUrl && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-           <div className="bg-white dark:bg-slate-800 w-full max-w-5xl h-[90vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 cursor-pointer"
+          onClick={() => setPreviewUrl(null)}
+        >
+           <div 
+            className="bg-white dark:bg-slate-800 w-full max-w-5xl h-[90vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col cursor-default animate-in zoom-in duration-300"
+            onClick={(e) => e.stopPropagation()}
+           >
               <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                 <h3 className="font-bold text-lg dark:text-white">Document Preview</h3>
+                 <h3 className="font-bold text-lg dark:text-white flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-indigo-600" />
+                    Document Preview
+                 </h3>
                  <button 
                   onClick={() => setPreviewUrl(null)}
-                  className="p-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all text-slate-400 hover:text-slate-600 flex items-center gap-1 font-bold text-sm"
                  >
-                   <ChevronRight className="rotate-90" />
+                   <span className="hidden sm:inline">Close</span>
+                   <X className="w-5 h-5" />
                  </button>
               </div>
-              <iframe 
-                src={previewUrl} 
-                className="flex-1 w-full border-none"
-                title="PDF Preview"
-              />
+              <div className="flex-1 w-full h-full bg-slate-50 dark:bg-slate-900 relative">
+                <iframe 
+                  src={previewUrl} 
+                  className="w-full h-full border-none"
+                  title="PDF Preview"
+                />
+              </div>
            </div>
         </div>
       )}
