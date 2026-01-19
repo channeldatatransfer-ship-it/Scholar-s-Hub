@@ -10,7 +10,6 @@ import {
   Trash2, 
   Maximize2, 
   Minimize2, 
-  ChevronRight,
   RefreshCw,
   BookOpen,
   Brain,
@@ -25,26 +24,25 @@ interface Message {
 }
 
 const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
+  const isBN = settings.language === 'BN';
   const [isOpen, setIsOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = localStorage.getItem('scholars_ai_history');
     return saved ? JSON.parse(saved) : [
-      { role: 'ai', text: 'Hello Scholar! I am your AI Study Buddy. How can I help you ace your exams today?' }
+      { role: 'ai', text: isBN ? 'হ্যালো স্কলার! আমি তোমার স্টাডি বাডি। আজ তোমাকে কিভাবে সাহায্য করতে পারি?' : 'Hello Scholar! I am your AI Study Buddy. How can I help you ace your exams today?' }
     ];
   });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
 
-  // Persist history
   useEffect(() => {
     localStorage.setItem('scholars_ai_history', JSON.stringify(messages));
   }, [messages]);
@@ -59,7 +57,6 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     setIsLoading(true);
 
     try {
-      // Map local history to API format
       const historyForApi = messages.map(m => ({
         role: (m.role === 'user' ? 'user' : 'model') as 'user' | 'model',
         parts: [{ text: m.text }]
@@ -68,23 +65,24 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       const response = await scholarChat(userMsg, historyForApi);
       setMessages(prev => [...prev, { role: 'ai', text: response }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'ai', text: "I'm having trouble connecting right now. Please check your API key or connection." }]);
+      setMessages(prev => [...prev, { role: 'ai', text: isBN ? "সংযোগ করতে সমস্যা হচ্ছে। অনুগ্রহ করে আপনার ইন্টারনেট চেক করুন।" : "I'm having trouble connecting right now. Please check your connection." }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const clearChat = () => {
-    if (confirm("Clear chat history?")) {
-      setMessages([{ role: 'ai', text: 'History cleared. What should we study next?' }]);
+    const clearMsg = isBN ? "চ্যাট হিস্ট্রি মুছে ফেলবেন?" : "Clear chat history?";
+    if (confirm(clearMsg)) {
+      setMessages([{ role: 'ai', text: isBN ? 'হিস্ট্রি মুছে ফেলা হয়েছে। এখন আমরা কি নিয়ে পড়ব?' : 'History cleared. What should we study next?' }]);
     }
   };
 
   const suggestions = [
-    { text: "How's my progress?", icon: BookOpen },
-    { text: "Study tips for Math", icon: Brain },
-    { text: "Explain Focus Timer", icon: Timer },
-    { text: "Help me stay motivated", icon: Sparkles }
+    { text: isBN ? "আমার অগ্রগতি কেমন?" : "How's my progress?", icon: BookOpen },
+    { text: isBN ? "গণিতের জন্য টিপস" : "Study tips for Math", icon: Brain },
+    { text: isBN ? "ফোকাস টাইমার বোঝান" : "Explain Focus Timer", icon: Timer },
+    { text: isBN ? "আমাকে অনুপ্রাণিত করুন" : "Help me stay motivated", icon: Sparkles }
   ];
 
   return (
@@ -101,7 +99,7 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               height: isMaximized ? '700px' : '550px',
             }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className={`mb-4 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden glass-card transition-all duration-300`}
+            className="mb-4 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300"
           >
             {/* Header */}
             <div className="p-5 border-b dark:border-slate-800 flex items-center justify-between bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
@@ -110,10 +108,10 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                   <Sparkles size={20} className="animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm dark:text-white tracking-tight">Scholar AI Buddy</h3>
+                  <h3 className="font-black text-sm dark:text-white tracking-tight">{isBN ? 'স্কলার এআই বাডি' : 'Scholar AI Buddy'}</h3>
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Active Assistant</span>
+                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{isBN ? 'অ্যাক্টিভ' : 'Active Assistant'}</span>
                   </div>
                 </div>
               </div>
@@ -139,7 +137,7 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               </div>
             </div>
 
-            {/* Suggestions Chips (Only shown when no history or small history) */}
+            {/* Suggestions Chips */}
             <div className="px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
               {suggestions.map((s, idx) => (
                 <button 
@@ -193,7 +191,7 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               <div className="relative group">
                 <input
                   type="text"
-                  placeholder="Ask for advice, explanations, or summaries..."
+                  placeholder={isBN ? "পরামর্শ বা ব্যাখ্যা জিজ্ঞাসা করুন..." : "Ask for advice, explanations..."}
                   className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-[1.5rem] py-4 pl-5 pr-14 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 dark:text-white shadow-inner transition-all"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -202,13 +200,13 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                 <button
                   onClick={() => handleSend()}
                   disabled={!input.trim() || isLoading}
-                  className="absolute right-2 top-2 p-2.5 rounded-xl text-white shadow-xl transition-all active:scale-90 disabled:opacity-0 disabled:scale-90"
+                  className="absolute right-2 top-2 p-2.5 rounded-xl text-white shadow-xl transition-all active:scale-90 disabled:opacity-0"
                   style={{ backgroundColor: settings.primaryColor }}
                 >
                   <Send size={18} />
                 </button>
               </div>
-              <p className="mt-3 text-[9px] text-center font-black text-slate-300 uppercase tracking-widest">Powered by Scholar AI Intelligence</p>
+              <p className="mt-3 text-[9px] text-center font-black text-slate-300 uppercase tracking-widest">{isBN ? 'স্কলার এআই দ্বারা চালিত' : 'Powered by Scholar AI Intelligence'}</p>
             </div>
           </motion.div>
         )}
@@ -219,7 +217,7 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         whileHover={{ scale: 1.05, rotate: 5 }}
         whileTap={{ scale: 0.95, rotate: -5 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="group p-5 rounded-[2rem] shadow-2xl text-white flex items-center justify-center relative overflow-hidden transition-all duration-300 active:shadow-indigo-500/40"
+        className="group p-5 rounded-[2rem] shadow-2xl text-white flex items-center justify-center relative overflow-hidden transition-all duration-300"
         style={{ backgroundColor: settings.primaryColor }}
       >
         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -227,13 +225,10 @@ const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           {isOpen ? <X size={28} /> : (
             <>
               <MessageSquare size={28} />
-              {!isOpen && <span className="text-xs font-black uppercase tracking-widest pr-2 hidden md:inline">Study Buddy</span>}
+              <span className="text-xs font-black uppercase tracking-widest pr-2 hidden md:inline">{isBN ? 'স্টাডি বাডি' : 'Study Buddy'}</span>
             </>
           )}
         </div>
-        {!isOpen && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full animate-pulse shadow-md" />
-        )}
       </motion.button>
     </div>
   );

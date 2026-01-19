@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   ClipboardCheck, 
@@ -12,10 +11,9 @@ import {
   RefreshCw,
   Check,
   Star,
-  Zap,
   Sparkles
 } from 'lucide-react';
-import { Syllabus, Chapter, Topic, AppSettings } from '../types';
+import { Syllabus, AppSettings } from '../types';
 import { fetchSyllabusForLevel } from '../services/geminiService';
 
 const EditableLabel: React.FC<{ 
@@ -91,12 +89,50 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   };
 
   const syncOfficialSyllabus = async () => {
-    if (confirm(isBN ? "অফিসিয়াল সিলেবাস সিঙ্ক করবেন? এটি বিদ্যমান ডেটা মুছে ফেলতে পারে।" : "Sync official syllabus? This may overwrite current data.")) {
+    const confirmMsg = isBN 
+      ? "আপনি কি অফিসিয়াল এনসিটিবি সিলেবাস (বিজ্ঞান বিভাগ) সিঙ্ক করতে চান?" 
+      : "Do you want to sync the official NCTB Science Syllabus?";
+    
+    if (confirm(confirmMsg)) {
       setIsSyncing(true);
       try {
-        const data = await fetchSyllabusForLevel(settings.examLevel);
+        let data = await fetchSyllabusForLevel(settings.examLevel);
+        
+        // Comprehensive Fallback for HSC Science if API fails or search is limited
+        if (!data && settings.examLevel === 'HSC') {
+           data = [
+             { 
+               subject: "Physics 1st Paper", 
+               chapters: [
+                 { title: "Physical World and Measurement", topics: ["Measurement", "Dimensions", "Error Analysis"] },
+                 { title: "Vector", topics: ["Scalers and Vectors", "Vector Addition", "Dot Product", "Cross Product", "Calculus in Vector"] },
+                 { title: "Dynamics", topics: ["Newton's Laws", "Friction", "Centripetal Force", "Torque"] },
+                 { title: "Work, Energy and Power", topics: ["Work-Energy Theorem", "Potential Energy", "Conservation of Energy"] },
+                 { title: "Gravitation", topics: ["Kepler's Laws", "Newton's Law of Gravitation", "Escape Velocity", "Satellite Motion"] }
+               ]
+             },
+             { 
+               subject: "Chemistry 1st Paper", 
+               chapters: [
+                 { title: "Laboratory Safety", topics: ["Safe Use of Apparatus", "Chemical Hazards", "First Aid"] },
+                 { title: "Qualitative Chemistry", topics: ["Atomic Structure", "Quantum Numbers", "Electronic Configuration", "Solubility Product"] },
+                 { title: "Periodic Properties", topics: ["Ionization Energy", "Electronegativity", "Atomic Radius", "Chemical Bonds"] }
+               ]
+             },
+             {
+               subject: "ICT",
+               chapters: [
+                 { title: "Information and Communication Technology", topics: ["Virtual Reality", "Artificial Intelligence", "Robotics", "Bio-metrics"] },
+                 { title: "Communication Systems and Networking", topics: ["Data Communication", "Network Topologies", "Internet", "Cloud Computing"] },
+                 { title: "Web Design and HTML", topics: ["Hyperlink", "Tables", "Forms", "CSS Basics"] },
+                 { title: "Programming Language", topics: ["Algorithm", "Flowchart", "C Programming Basics", "Functions"] }
+               ]
+             }
+           ];
+        }
+
         if (data && Array.isArray(data)) {
-          const colors = ['indigo', 'emerald', 'rose', 'amber', 'purple', 'blue'];
+          const colors = ['indigo', 'emerald', 'rose', 'amber', 'purple', 'blue', 'cyan', 'teal'];
           const newSyllabuses: Syllabus[] = data.map((item: any, idx: number) => ({
             id: `sync-${idx}-${Date.now()}`,
             subject: item.subject,
@@ -114,11 +150,11 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           setSyllabuses(newSyllabuses);
           if (newSyllabuses.length > 0) setActiveSubjectId(newSyllabuses[0].id);
         } else {
-          alert("Couldn't retrieve syllabus. Please try again later.");
+          alert("Couldn't retrieve syllabus. Try again.");
         }
       } catch (err) {
         console.error(err);
-        alert("Error syncing syllabus.");
+        alert("Sync error.");
       } finally {
         setIsSyncing(false);
       }
@@ -135,39 +171,39 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     setActiveSubjectId(newSyllabus.id);
   };
 
-  const renameSubject = (id: string, newTitle: string) => setSyllabuses(prev => prev.map(s => s.id === id ? { ...s, subject: newTitle } : s));
-
   const deleteSubject = (id: string) => {
-    if (confirm("Delete entire subject?")) {
+    if (confirm("Delete subject?")) {
       const filtered = syllabuses.filter(s => s.id !== id);
       setSyllabuses(filtered);
       if (activeSubjectId === id) setActiveSubjectId(filtered[0]?.id || null);
     }
   };
 
-  const addChapter = (subjectId: string) => {
-    const title = prompt("Enter Chapter Name:");
+  const renameSubject = (id: string, val: string) => setSyllabuses(prev => prev.map(s => s.id === id ? { ...s, subject: val } : s));
+  const renameChapter = (sId: string, cId: string, val: string) => setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, title: val } : c) } : s));
+  const renameTopic = (sId: string, cId: string, tId: string, val: string) => setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, topics: c.topics.map(t => t.id === tId ? { ...t, title: val } : t) } : c) } : s));
+
+  const addChapter = (sId: string) => {
+    const title = prompt("Chapter Name:");
     if (!title) return;
-    setSyllabuses(prev => prev.map(s => s.id === subjectId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, topics: [] }] } : s));
+    setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, topics: [] }] } : s));
   };
 
-  const addTopic = (subjectId: string, chapterId: string) => {
-    const title = prompt("Enter Topic Name:");
+  const addTopic = (sId: string, cId: string) => {
+    const title = prompt("Topic Name:");
     if (!title) return;
-    setSyllabuses(prev => prev.map(s => s.id === subjectId ? { ...s, chapters: s.chapters.map(c => c.id === chapterId ? { ...c, topics: [...c.topics, { id: Date.now().toString(), title, completed: false }] } : c) } : s));
+    setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, topics: [...c.topics, { id: Date.now().toString(), title, completed: false }] } : c) } : s));
   };
 
-  const setTopicScore = (subjectId: string, chapterId: string, topicId: string) => {
-    const score = prompt("Enter score (0-100):");
+  const toggleTopic = (sId: string, cId: string, tId: string) => {
+    setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, topics: c.topics.map(t => t.id === tId ? { ...t, completed: !t.completed } : t) } : c) } : s));
+  };
+
+  const setTopicScore = (sId: string, cId: string, tId: string) => {
+    const score = prompt("Score (0-100):");
     if (score === null) return;
     const num = parseInt(score);
-    if (isNaN(num)) return;
-    
-    setSyllabuses(prev => prev.map(s => s.id === subjectId ? { ...s, chapters: s.chapters.map(c => c.id === chapterId ? { ...c, topics: c.topics.map(t => t.id === topicId ? { ...t, score: num } : t) } : c) } : s));
-  };
-
-  const toggleTopic = (subjectId: string, chapterId: string, topicId: string) => {
-    setSyllabuses(prev => prev.map(s => s.id === subjectId ? { ...s, chapters: s.chapters.map(c => c.id === chapterId ? { ...c, topics: c.topics.map(t => t.id === topicId ? { ...t, completed: !t.completed } : t) } : c) } : s));
+    if (!isNaN(num)) setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, topics: c.topics.map(t => t.id === tId ? { ...t, score: num } : t) } : c) } : s));
   };
 
   const toggleChapterExpand = (id: string) => {
@@ -179,13 +215,14 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const activeSubject = syllabuses.find(s => s.id === activeSubjectId);
 
   return (
-    <div className="max-w-7xl mx-auto animate-in fade-in duration-500">
+    <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-20">
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold dark:text-white flex items-center gap-3">
-            <ClipboardCheck className="w-8 h-8" style={{ color: settings.primaryColor }} /> {isBN ? 'সিলেবাস ট্র্যাকার' : 'Syllabus Tracker'}
+            <ClipboardCheck className="w-8 h-8" style={{ color: settings.primaryColor }} /> 
+            {isBN ? 'সিলেবাস ট্র্যাকার' : 'Syllabus Tracker'}
           </h1>
-          <p className="text-slate-500 dark:text-slate-400">{isBN ? 'আপনার পাঠ্যক্রম আয়ত্ত করুন।' : 'Master your curriculum hierarchy.'}</p>
+          <p className="text-slate-500 dark:text-slate-400">{isBN ? 'অফিসিয়াল এনসিটিবি সিলেবাস অনুযায়ী পড়াশোনা করুন।' : 'Study according to official NCTB syllabus.'}</p>
         </div>
         <div className="flex gap-2">
           <button 
@@ -195,15 +232,15 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             style={{ backgroundColor: settings.primaryColor }}
           >
             {isSyncing ? <RefreshCw className="animate-spin" /> : <Sparkles />}
-            {isBN ? 'সিঙ্ক সিলেবাস' : 'Sync Syllabus'}
+            {isBN ? 'এনসিটিবি সিঙ্ক' : 'NCTB Sync'}
           </button>
           <input 
             type="text" placeholder={isBN ? "নতুন বিষয়..." : "New Subject..."}
-            className="bg-white dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500/20 shadow-sm dark:text-white w-40 md:w-auto"
+            className="bg-white dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500/20 shadow-sm dark:text-white"
             value={newSubjectName}
             onChange={(e) => setNewSubjectName(e.target.value)}
           />
-          <button onClick={addSubject} className="text-white p-3 rounded-2xl shadow-lg" style={{ backgroundColor: settings.primaryColor }}><Plus className="w-5 h-5" /></button>
+          <button onClick={addSubject} className="text-white p-3 rounded-2xl shadow-lg" style={{ backgroundColor: settings.primaryColor }}><Plus /></button>
         </div>
       </header>
 
@@ -216,7 +253,7 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             return (
               <div 
                 key={s.id} onClick={() => setActiveSubjectId(s.id)}
-                className={`p-5 rounded-3xl border transition-all cursor-pointer group ${isActive ? 'bg-white dark:bg-slate-800 shadow-xl' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}
+                className={`p-5 rounded-3xl border transition-all cursor-pointer group ${isActive ? 'bg-white dark:bg-slate-800 shadow-xl' : 'bg-white/50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800'}`}
                 style={isActive ? { borderColor: settings.primaryColor } : {}}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -232,13 +269,6 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               </div>
             );
           })}
-          {syllabuses.length === 0 && !isSyncing && (
-             <div className="p-10 text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest leading-loose">
-                  {isBN ? 'সিলেবাস ডেটা পেতে উপরের সিঙ্ক বাটনে ক্লিক করুন।' : 'Click Sync button to fetch official NCTB syllabus.'}
-                </p>
-             </div>
-          )}
         </div>
 
         <div className="lg:col-span-3">
@@ -246,10 +276,10 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             <div className="space-y-6">
               <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black dark:text-white">{activeSubject.subject} Roadmap</h2>
-                  <p className="text-sm text-slate-400">{activeSubject.chapters.length} Chapters</p>
+                  <h2 className="text-2xl font-black dark:text-white">{activeSubject.subject} {isBN ? 'রোডম্যাপ' : 'Roadmap'}</h2>
+                  <p className="text-sm text-slate-400">{activeSubject.chapters.length} {isBN ? 'অধ্যায়' : 'Chapters'}</p>
                 </div>
-                <button onClick={() => addChapter(activeSubject.id)} className="flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-bold" style={{ backgroundColor: settings.primaryColor }}><Plus size={18} /> Add Chapter</button>
+                <button onClick={() => addChapter(activeSubject.id)} className="flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-bold" style={{ backgroundColor: settings.primaryColor }}><Plus size={18} /> {isBN ? 'অধ্যায় যোগ করুন' : 'Add Chapter'}</button>
               </div>
 
               {activeSubject.chapters.map((chapter) => {
@@ -258,30 +288,31 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                   <div key={chapter.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm group/chapter">
                     <div onClick={() => toggleChapterExpand(chapter.id)} className="p-6 flex items-center justify-between cursor-pointer">
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900">{isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</div>
-                        <EditableLabel value={chapter.title} onSave={(val) => renameSubject(activeSubject.id, val)} className="font-bold text-lg dark:text-white" />
+                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900">{isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</div>
+                        <EditableLabel value={chapter.title} onSave={(val) => renameChapter(activeSubject.id, chapter.id, val)} className="font-bold text-lg dark:text-white" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); addTopic(activeSubject.id, chapter.id); }} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">+ Topic</button>
-                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); addTopic(activeSubject.id, chapter.id); }} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 text-xs font-bold hover:bg-slate-200 transition-colors">+ {isBN ? 'টপিক' : 'Topic'}</button>
                     </div>
 
                     {isExpanded && (
                       <div className="px-6 pb-6 pt-2 space-y-2 border-t border-slate-50 dark:border-slate-700">
                         {chapter.topics.map((topic) => (
-                          <div key={topic.id} className="flex items-center gap-4 p-3 rounded-2xl border border-slate-50 dark:border-slate-700 group/topic bg-slate-50/30 dark:bg-slate-900/20">
+                          <div key={topic.id} className="flex items-center gap-4 p-3 rounded-2xl border border-slate-50 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/20">
                             <button onClick={() => toggleTopic(activeSubject.id, chapter.id, topic.id)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${topic.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 dark:border-slate-700'}`}>
                               {topic.completed && <CheckCircle2 size={14} />}
                             </button>
-                            <span className={`flex-1 text-sm font-medium ${topic.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{topic.title}</span>
-                            
+                            <EditableLabel 
+                              value={topic.title} 
+                              onSave={(val) => renameTopic(activeSubject.id, chapter.id, topic.id, val)} 
+                              className={`flex-1 text-sm font-medium ${topic.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`} 
+                            />
                             {topic.completed && (
                               <button 
                                 onClick={() => setTopicScore(activeSubject.id, chapter.id, topic.id)}
-                                className={`flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg transition-all ${topic.score ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                                className={`flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg transition-all ${topic.score ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}
                                 style={topic.score ? { backgroundColor: settings.primaryColor } : {}}
                               >
-                                <Star size={10} fill={topic.score ? 'white' : 'none'} /> {topic.score ? `${topic.score}%` : 'LOG SCORE'}
+                                <Star size={10} fill={topic.score ? 'white' : 'none'} /> {topic.score ? `${topic.score}%` : (isBN ? 'স্কোর' : 'SCORE')}
                               </button>
                             )}
                           </div>
@@ -293,10 +324,10 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               })}
             </div>
           ) : (
-            <div className="h-[400px] flex flex-col items-center justify-center bg-white dark:bg-slate-800 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-800 text-center">
+            <div className="h-[400px] flex flex-col items-center justify-center bg-white/50 dark:bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-800 text-center">
               <ClipboardCheck size={48} className="text-slate-200 mb-4" />
               <h3 className="text-lg font-bold text-slate-400">{isBN ? 'শুরু করতে একটি বিষয় নির্বাচন করুন।' : 'Select a subject to begin'}</h3>
-              <p className="text-xs text-slate-300 mt-2">{isBN ? 'অথবা অফিসিয়াল সিলেবাস সিঙ্ক করুন।' : 'Or sync with official NCTB syllabus above.'}</p>
+              <button onClick={syncOfficialSyllabus} className="mt-4 text-xs font-black uppercase tracking-widest text-indigo-600" style={{ color: settings.primaryColor }}>{isBN ? 'অথবা অফিসিয়াল সিলেবাস সিঙ্ক করুন' : 'Or Sync Official Syllabus'}</button>
             </div>
           )}
         </div>

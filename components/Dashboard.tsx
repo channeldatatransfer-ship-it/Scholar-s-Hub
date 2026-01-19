@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Trophy, 
@@ -5,15 +6,13 @@ import {
   Clock, 
   CheckCircle2, 
   Plus,
-  Zap,
   TrendingUp,
-  PieChart as PieIcon,
   BarChart3,
   CalendarDays,
   Target
 } from 'lucide-react';
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
 import { Syllabus, AppSettings, FocusLog } from '../types';
@@ -40,6 +39,7 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   const performanceData = useMemo(() => {
     const topics = syllabuses.flatMap(s => s.chapters.flatMap(c => c.topics)).filter(t => t.score !== undefined);
+    if (topics.length === 0) return [{ name: isBN ? 'শুরু করুন' : 'Start', score: 0 }];
     return topics.map((t, i) => ({ name: isBN ? `টেস্ট ${i+1}` : `Test ${i+1}`, score: t.score }));
   }, [syllabuses, isBN]);
 
@@ -60,11 +60,19 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   const COLORS = [settings.primaryColor, '#10b981', '#f59e0b', '#e11d48', '#8b5cf6', '#0ea5e9'];
 
+  const avgScore = performanceData.some(d => d.score > 0) 
+    ? Math.round(performanceData.reduce((a, b) => a + (b.score || 0), 0) / performanceData.length)
+    : 0;
+
+  const curriculumMastery = syllabuses.length 
+    ? Math.round(syllabuses.reduce((a, b) => a + getProgress(b), 0) / syllabuses.length)
+    : 0;
+
   const stats = [
     { label: isBN ? 'অধ্যয়ন স্ট্রিক' : 'Study Streak', value: isBN ? '১২ দিন' : '12 Days', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
     { label: isBN ? 'মোট ফোকাস' : 'Total Focus', value: isBN ? `${Math.round(focusLogs.reduce((a,b) => a + b.minutes, 0) / 60)} ঘণ্টা` : `${Math.round(focusLogs.reduce((a,b) => a + b.minutes, 0) / 60)} hrs`, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-    { label: isBN ? 'গড় স্কোর' : 'Avg Score', value: performanceData.length ? `${Math.round(performanceData.reduce((a,b) => a + (b.score || 0), 0) / performanceData.length)}%` : 'N/A', icon: Trophy, color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
-    { label: isBN ? 'পাঠ্যক্রম আয়ত্ত' : 'Curriculum Mastery', value: `${syllabuses.length ? Math.round(syllabuses.reduce((a,b) => a + getProgress(b), 0) / syllabuses.length) : 0}%`, icon: CheckCircle2, color: 'dynamic-primary-text', bg: 'bg-slate-50 dark:bg-slate-800/50' },
+    { label: isBN ? 'গড় স্কোর' : 'Avg Score', value: `${avgScore}%`, icon: Trophy, color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
+    { label: isBN ? 'পাঠ্যক্রম আয়ত্ত' : 'Curriculum Mastery', value: `${curriculumMastery}%`, icon: CheckCircle2, color: 'dynamic-primary-text', bg: 'bg-slate-50 dark:bg-slate-800/50' },
   ];
 
   const examCountdown = {
@@ -74,16 +82,11 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     days: 45
   };
 
-  const getGreeting = () => {
-    if (isBN) return 'স্বাগতম, স্কলার!';
-    return 'Welcome back, Scholar!';
-  };
-
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black dark:text-white tracking-tight">{getGreeting()} 👋</h1>
+          <h1 className="text-4xl font-black dark:text-white tracking-tight">{isBN ? 'স্বাগতম, স্কলার!' : 'Welcome back, Scholar!'} 👋</h1>
           <p className="text-slate-500 dark:text-slate-400 text-lg">
             {isBN ? 'পরিশ্রম সৌভাগ্যের প্রসূতি।' : 'Hard work is the key to success.'}
           </p>
