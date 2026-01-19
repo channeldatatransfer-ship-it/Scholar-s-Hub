@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 const MODEL_NAME = 'gemini-3-flash-preview';
@@ -46,20 +47,20 @@ export const simplifyContent = async (content: string) => {
   return response.text || "";
 };
 
-export const fetchSyllabusForLevel = async (level: string) => {
+export const fetchSyllabusForLevel = async (level: string, group: string = 'Science') => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Specifically instructing to look for NCTB Bangladesh and the requested repo structure
-  const prompt = `Search for the latest official NCTB ${level} Science group syllabus for Bangladesh. 
-  Refer to resources like the 'study-progress-tracker' on GitHub or official NCTB documents.
-  Extract the main chapters and topics for Physics 1st & 2nd, Chemistry 1st & 2nd, Biology 1st & 2nd, Higher Math 1st & 2nd, and ICT.
+  const prompt = `Search for the latest official NCTB ${level} ${group} group syllabus for Bangladesh. 
+  Focus on identifying all major subjects for this profile.
+  Refer to resources like the 'study-progress-tracker' on GitHub for structure if needed.
+  Extract the main chapters and topics for all relevant subjects.
   Return ONLY a raw JSON array of objects.
-  Structure: [{"subject": "Physics 1st Paper", "chapters": [{"title": "Vector", "topics": ["Definition", "Addition"]}]}]
-  Ensure all chapters are included for a complete HSC/SSC track.`;
+  Structure: [{"subject": "Subject Name", "chapters": [{"title": "Chapter Title", "topics": ["Topic 1", "Topic 2"]}]}]
+  Ensure the syllabus is comprehensive for a complete 2-year cycle.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // Using pro for better extraction of large lists
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -67,7 +68,6 @@ export const fetchSyllabusForLevel = async (level: string) => {
     });
 
     const text = response.text || '';
-    // Use a regex to find the JSON array in case there's extra text
     const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
@@ -75,7 +75,6 @@ export const fetchSyllabusForLevel = async (level: string) => {
     return JSON.parse(text);
   } catch (e) {
     console.error("Syllabus fetch error:", e);
-    // Return a structured default if AI fails
     return null;
   }
 };

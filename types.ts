@@ -1,5 +1,6 @@
 
 export type ExamLevel = 'SSC' | 'HSC' | 'Engineering' | 'Medical' | 'General';
+export type AcademicGroup = 'Science' | 'Commerce' | 'Humanities';
 
 export interface Task {
   id: string;
@@ -35,6 +36,7 @@ export interface AppSettings {
   gdriveKey?: string;
   gdriveClientId?: string;
   examLevel: ExamLevel;
+  academicGroup?: AcademicGroup;
   language: 'EN' | 'BN';
 }
 

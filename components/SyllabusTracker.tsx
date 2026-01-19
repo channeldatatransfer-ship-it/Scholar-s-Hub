@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   ClipboardCheck, 
@@ -11,9 +12,12 @@ import {
   RefreshCw,
   Check,
   Star,
-  Sparkles
+  Sparkles,
+  Trophy,
+  BookMarked,
+  GraduationCap
 } from 'lucide-react';
-import { Syllabus, AppSettings } from '../types';
+import { Syllabus, AppSettings, AcademicGroup, Chapter, Topic } from '../types';
 import { fetchSyllabusForLevel } from '../services/geminiService';
 
 const EditableLabel: React.FC<{ 
@@ -67,14 +71,14 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const isBN = settings.language === 'BN';
   const [syllabuses, setSyllabuses] = useState<Syllabus[]>(() => {
     const saved = localStorage.getItem('scholars_syllabuses_v2');
-    if (saved) return JSON.parse(saved);
-    return [];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [activeSubjectId, setActiveSubjectId] = useState<string | null>(syllabuses[0]?.id || null);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<AcademicGroup>(settings.academicGroup || 'Science');
 
   useEffect(() => {
     localStorage.setItem('scholars_syllabuses_v2', JSON.stringify(syllabuses));
@@ -88,76 +92,66 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     return Math.round((completed / allTopics.length) * 100);
   };
 
+  const overallProgress = syllabuses.length > 0 
+    ? Math.round(syllabuses.reduce((acc, s) => acc + getSubjectProgress(s), 0) / syllabuses.length) 
+    : 0;
+
+  // --- REFACTORED STATE UPDATERS TO PREVENT SYNTAX ERRORS ---
+  
+  const updateSubject = (id: string, updater: (s: Syllabus) => Syllabus) => {
+    setSyllabuses(prev => prev.map(s => s.id === id ? updater(s) : s));
+  };
+
+  const updateChapter = (sId: string, cId: string, updater: (c: Chapter) => Chapter) => {
+    updateSubject(sId, s => ({
+      ...s,
+      chapters: s.chapters.map(c => c.id === cId ? updater(c) : c)
+    }));
+  };
+
+  const updateTopic = (sId: string, cId: string, tId: string, updater: (t: Topic) => Topic) => {
+    updateChapter(sId, cId, c => ({
+      ...c,
+      topics: c.topics.map(t => t.id === tId ? updater(t) : t)
+    }));
+  };
+
+  // --- ACTIONS ---
+
   const syncOfficialSyllabus = async () => {
     const confirmMsg = isBN 
-      ? "আপনি কি অফিসিয়াল এনসিটিবি সিলেবাস (বিজ্ঞান বিভাগ) সিঙ্ক করতে চান?" 
-      : "Do you want to sync the official NCTB Science Syllabus?";
+      ? `আপনি কি ${selectedGroup} বিভাগের অফিসিয়াল এনসিটিবি সিলেবাস সিঙ্ক করতে চান?` 
+      : `Sync the official NCTB ${selectedGroup} Syllabus?`;
     
-    if (confirm(confirmMsg)) {
-      setIsSyncing(true);
-      try {
-        let data = await fetchSyllabusForLevel(settings.examLevel);
-        
-        // Comprehensive Fallback for HSC Science if API fails or search is limited
-        if (!data && settings.examLevel === 'HSC') {
-           data = [
-             { 
-               subject: "Physics 1st Paper", 
-               chapters: [
-                 { title: "Physical World and Measurement", topics: ["Measurement", "Dimensions", "Error Analysis"] },
-                 { title: "Vector", topics: ["Scalers and Vectors", "Vector Addition", "Dot Product", "Cross Product", "Calculus in Vector"] },
-                 { title: "Dynamics", topics: ["Newton's Laws", "Friction", "Centripetal Force", "Torque"] },
-                 { title: "Work, Energy and Power", topics: ["Work-Energy Theorem", "Potential Energy", "Conservation of Energy"] },
-                 { title: "Gravitation", topics: ["Kepler's Laws", "Newton's Law of Gravitation", "Escape Velocity", "Satellite Motion"] }
-               ]
-             },
-             { 
-               subject: "Chemistry 1st Paper", 
-               chapters: [
-                 { title: "Laboratory Safety", topics: ["Safe Use of Apparatus", "Chemical Hazards", "First Aid"] },
-                 { title: "Qualitative Chemistry", topics: ["Atomic Structure", "Quantum Numbers", "Electronic Configuration", "Solubility Product"] },
-                 { title: "Periodic Properties", topics: ["Ionization Energy", "Electronegativity", "Atomic Radius", "Chemical Bonds"] }
-               ]
-             },
-             {
-               subject: "ICT",
-               chapters: [
-                 { title: "Information and Communication Technology", topics: ["Virtual Reality", "Artificial Intelligence", "Robotics", "Bio-metrics"] },
-                 { title: "Communication Systems and Networking", topics: ["Data Communication", "Network Topologies", "Internet", "Cloud Computing"] },
-                 { title: "Web Design and HTML", topics: ["Hyperlink", "Tables", "Forms", "CSS Basics"] },
-                 { title: "Programming Language", topics: ["Algorithm", "Flowchart", "C Programming Basics", "Functions"] }
-               ]
-             }
-           ];
-        }
+    if (!confirm(confirmMsg)) return;
 
-        if (data && Array.isArray(data)) {
-          const colors = ['indigo', 'emerald', 'rose', 'amber', 'purple', 'blue', 'cyan', 'teal'];
-          const newSyllabuses: Syllabus[] = data.map((item: any, idx: number) => ({
-            id: `sync-${idx}-${Date.now()}`,
-            subject: item.subject,
-            color: colors[idx % colors.length],
-            chapters: item.chapters.map((ch: any, cIdx: number) => ({
-              id: `ch-${idx}-${cIdx}-${Date.now()}`,
-              title: ch.title,
-              topics: ch.topics.map((tp: string, tIdx: number) => ({
-                id: `tp-${idx}-${cIdx}-${tIdx}-${Date.now()}`,
-                title: tp,
-                completed: false
-              }))
+    setIsSyncing(true);
+    try {
+      const data = await fetchSyllabusForLevel(settings.examLevel, selectedGroup);
+      if (data && Array.isArray(data)) {
+        const colors = ['indigo', 'emerald', 'rose', 'amber', 'purple', 'blue', 'cyan', 'teal'];
+        const newSyllabuses: Syllabus[] = data.map((item: any, idx: number) => ({
+          id: `sync-${idx}-${Date.now()}`,
+          subject: item.subject,
+          color: colors[idx % colors.length],
+          chapters: (item.chapters || []).map((ch: any, cIdx: number) => ({
+            id: `ch-${idx}-${cIdx}-${Date.now()}`,
+            title: ch.title,
+            topics: (ch.topics || []).map((tp: string, tIdx: number) => ({
+              id: `tp-${idx}-${cIdx}-${tIdx}-${Date.now()}`,
+              title: tp,
+              completed: false
             }))
-          }));
-          setSyllabuses(newSyllabuses);
-          if (newSyllabuses.length > 0) setActiveSubjectId(newSyllabuses[0].id);
-        } else {
-          alert("Couldn't retrieve syllabus. Try again.");
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Sync error.");
-      } finally {
-        setIsSyncing(false);
+          }))
+        }));
+        setSyllabuses(newSyllabuses);
+        if (newSyllabuses.length > 0) setActiveSubjectId(newSyllabuses[0].id);
       }
+    } catch (err) {
+      console.error(err);
+      alert("Sync failed. Check connection.");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -165,45 +159,53 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     if (!newSubjectName.trim()) return;
     const colors = ['indigo', 'emerald', 'rose', 'amber', 'purple', 'blue'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
-    const newSyllabus: Syllabus = { id: Date.now().toString(), subject: newSubjectName, color: randomColor, chapters: [] };
-    setSyllabuses([...syllabuses, newSyllabus]);
+    const newSyllabus: Syllabus = { 
+      id: Date.now().toString(), 
+      subject: newSubjectName, 
+      color: randomColor, 
+      chapters: [] 
+    };
+    setSyllabuses(prev => [...prev, newSyllabus]);
     setNewSubjectName('');
     setActiveSubjectId(newSyllabus.id);
   };
 
   const deleteSubject = (id: string) => {
-    if (confirm("Delete subject?")) {
-      const filtered = syllabuses.filter(s => s.id !== id);
-      setSyllabuses(filtered);
-      if (activeSubjectId === id) setActiveSubjectId(filtered[0]?.id || null);
-    }
+    if (!confirm("Delete entire subject?")) return;
+    const filtered = syllabuses.filter(s => s.id !== id);
+    setSyllabuses(filtered);
+    if (activeSubjectId === id) setActiveSubjectId(filtered[0]?.id || null);
   };
-
-  const renameSubject = (id: string, val: string) => setSyllabuses(prev => prev.map(s => s.id === id ? { ...s, subject: val } : s));
-  const renameChapter = (sId: string, cId: string, val: string) => setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, title: val } : c) } : s));
-  const renameTopic = (sId: string, cId: string, tId: string, val: string) => setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, topics: c.topics.map(t => t.id === tId ? { ...t, title: val } : t) } : c) } : s));
 
   const addChapter = (sId: string) => {
     const title = prompt("Chapter Name:");
     if (!title) return;
-    setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, topics: [] }] } : s));
+    updateSubject(sId, s => ({
+      ...s,
+      chapters: [...s.chapters, { id: Date.now().toString(), title, topics: [] }]
+    }));
   };
 
   const addTopic = (sId: string, cId: string) => {
     const title = prompt("Topic Name:");
     if (!title) return;
-    setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, topics: [...c.topics, { id: Date.now().toString(), title, completed: false }] } : c) } : s));
+    updateChapter(sId, cId, c => ({
+      ...c,
+      topics: [...c.topics, { id: Date.now().toString(), title, completed: false }]
+    }));
   };
 
   const toggleTopic = (sId: string, cId: string, tId: string) => {
-    setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, topics: c.topics.map(t => t.id === tId ? { ...t, completed: !t.completed } : t) } : c) } : s));
+    updateTopic(sId, cId, tId, t => ({ ...t, completed: !t.completed }));
   };
 
   const setTopicScore = (sId: string, cId: string, tId: string) => {
     const score = prompt("Score (0-100):");
     if (score === null) return;
     const num = parseInt(score);
-    if (!isNaN(num)) setSyllabuses(prev => prev.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, topics: c.topics.map(t => t.id === tId ? { ...t, score: num } : t) } : c) } : s));
+    if (!isNaN(num)) {
+      updateTopic(sId, cId, tId, t => ({ ...t, score: num }));
+    }
   };
 
   const toggleChapterExpand = (id: string) => {
@@ -216,103 +218,188 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   return (
     <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-20">
-      <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold dark:text-white flex items-center gap-3">
-            <ClipboardCheck className="w-8 h-8" style={{ color: settings.primaryColor }} /> 
-            {isBN ? 'সিলেবাস ট্র্যাকার' : 'Syllabus Tracker'}
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400">{isBN ? 'অফিসিয়াল এনসিটিবি সিলেবাস অনুযায়ী পড়াশোনা করুন।' : 'Study according to official NCTB syllabus.'}</p>
+      <header className="mb-12 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+        <div className="flex items-center gap-6">
+          <div className="p-5 rounded-[2.5rem] bg-indigo-600 shadow-2xl shadow-indigo-500/20" style={{ backgroundColor: settings.primaryColor }}>
+             <ClipboardCheck className="w-10 h-10 text-white" />
+          </div>
+          <div>
+            <h1 className="text-4xl font-black dark:text-white tracking-tight">
+              {isBN ? 'অ্যাকাডেমিক প্রোফাইল' : 'Academic Profile'}
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-lg">
+              {isBN ? `${settings.examLevel} (${selectedGroup})` : `${settings.examLevel} Curriculum - ${selectedGroup}`}
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Profile Quick Switch */}
+          <div className="flex bg-white dark:bg-slate-900 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+             {(['Science', 'Commerce', 'Humanities'] as AcademicGroup[]).map(group => (
+               <button
+                key={group}
+                onClick={() => setSelectedGroup(group)}
+                className={`px-5 py-2.5 rounded-[1.5rem] text-xs font-black uppercase tracking-widest transition-all ${selectedGroup === group ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:text-indigo-600'}`}
+                style={selectedGroup === group ? { backgroundColor: settings.primaryColor } : {}}
+               >
+                 {group}
+               </button>
+             ))}
+          </div>
+
           <button 
             onClick={syncOfficialSyllabus}
             disabled={isSyncing}
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-white transition-all shadow-lg active:scale-95 ${isSyncing ? 'animate-pulse opacity-70' : ''}`}
+            className={`flex items-center gap-2 px-8 py-4 rounded-[2rem] font-black text-white transition-all shadow-xl active:scale-95 whitespace-nowrap ${isSyncing ? 'animate-pulse opacity-70' : ''}`}
             style={{ backgroundColor: settings.primaryColor }}
           >
             {isSyncing ? <RefreshCw className="animate-spin" /> : <Sparkles />}
-            {isBN ? 'এনসিটিবি সিঙ্ক' : 'NCTB Sync'}
+            {isBN ? 'সিলেবাস সিঙ্ক' : 'Sync Syllabus'}
           </button>
-          <input 
-            type="text" placeholder={isBN ? "নতুন বিষয়..." : "New Subject..."}
-            className="bg-white dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500/20 shadow-sm dark:text-white"
-            value={newSubjectName}
-            onChange={(e) => setNewSubjectName(e.target.value)}
-          />
-          <button onClick={addSubject} className="text-white p-3 rounded-2xl shadow-lg" style={{ backgroundColor: settings.primaryColor }}><Plus /></button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-1 space-y-4">
-          <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest px-2">{isBN ? 'বিষয়সমূহ' : 'Subjects'}</h2>
-          {syllabuses.map((s) => {
-            const prog = getSubjectProgress(s);
-            const isActive = activeSubjectId === s.id;
-            return (
-              <div 
-                key={s.id} onClick={() => setActiveSubjectId(s.id)}
-                className={`p-5 rounded-3xl border transition-all cursor-pointer group ${isActive ? 'bg-white dark:bg-slate-800 shadow-xl' : 'bg-white/50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800'}`}
-                style={isActive ? { borderColor: settings.primaryColor } : {}}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-2 bg-slate-50 dark:bg-slate-900 rounded-xl">
-                    <BookOpen size={20} className="text-slate-400" style={isActive ? { color: settings.primaryColor } : {}} />
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); deleteSubject(s.id); }} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
-                </div>
-                <EditableLabel value={s.subject} onSave={(val) => renameSubject(s.id, val)} className="text-sm font-bold dark:text-white mb-2" />
-                <div className="w-full bg-slate-100 dark:bg-slate-900 h-1.5 rounded-full overflow-hidden">
-                  <div className="h-full transition-all duration-700" style={{ width: `${prog}%`, backgroundColor: settings.primaryColor }} />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+        {/* Left Nav: Subjects & Mastery */}
+        <aside className="lg:col-span-1 space-y-6 lg:sticky lg:top-8">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <BookMarked size={14} /> {isBN ? 'বিষয় সমুহ' : 'Subjects'}
+                </h2>
+                <div className="flex items-center gap-2">
+                   <input 
+                    type="text" 
+                    placeholder="+"
+                    className="w-12 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-center text-sm font-bold focus:ring-2 focus:ring-indigo-500/20"
+                    value={newSubjectName}
+                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addSubject()}
+                   />
                 </div>
               </div>
-            );
-          })}
-        </div>
+              <div className="space-y-3">
+                {syllabuses.map((s) => {
+                  const prog = getSubjectProgress(s);
+                  const isActive = activeSubjectId === s.id;
+                  return (
+                    <div 
+                      key={s.id} onClick={() => setActiveSubjectId(s.id)}
+                      className={`p-5 rounded-[1.5rem] border transition-all cursor-pointer group relative overflow-hidden ${isActive ? 'bg-indigo-50 dark:bg-indigo-900/20 shadow-lg' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                      style={isActive ? { borderColor: settings.primaryColor } : { borderColor: 'transparent' }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <EditableLabel 
+                          value={s.subject} 
+                          onSave={(val) => updateSubject(s.id, subj => ({ ...subj, subject: val }))} 
+                          className={`text-sm font-bold ${isActive ? 'text-indigo-700 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`} 
+                        />
+                        <button onClick={(e) => { e.stopPropagation(); deleteSubject(s.id); }} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-opacity"><Trash2 size={14} /></button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div className="h-full transition-all duration-700" style={{ width: `${prog}%`, backgroundColor: settings.primaryColor }} />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400">{prog}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+           </div>
 
-        <div className="lg:col-span-3">
+           {/* Overall Mastery Card */}
+           <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-500/30">
+              <Trophy className="w-10 h-10 mb-6 opacity-40" />
+              <h3 className="text-xl font-black mb-2">{isBN ? 'সামগ্রিক আয়ত্ত' : 'Overall Mastery'}</h3>
+              <div className="text-5xl font-black mb-6">{overallProgress}%</div>
+              <div className="w-full bg-white/20 h-2.5 rounded-full overflow-hidden mb-2">
+                 <div className="bg-white h-full shadow-[0_0_15px_white]" style={{ width: `${overallProgress}%` }} />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100 opacity-70">
+                {isBN ? `${syllabuses.length} টি বিষয়ের তথ্য` : `Tracking ${syllabuses.length} subjects`}
+              </p>
+           </div>
+        </aside>
+
+        {/* Right Content: Detailed Hierarchy */}
+        <main className="lg:col-span-3 space-y-6">
           {activeSubject ? (
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-6 animate-in slide-in-from-right duration-500">
+              <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                  <h2 className="text-2xl font-black dark:text-white">{activeSubject.subject} {isBN ? 'রোডম্যাপ' : 'Roadmap'}</h2>
-                  <p className="text-sm text-slate-400">{activeSubject.chapters.length} {isBN ? 'অধ্যায়' : 'Chapters'}</p>
+                  <h2 className="text-3xl font-black dark:text-white flex items-center gap-3">
+                    <BookOpen className="text-indigo-600" style={{ color: settings.primaryColor }} />
+                    {activeSubject.subject}
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1 font-medium">{activeSubject.chapters.length} Chapters in this subject</p>
                 </div>
-                <button onClick={() => addChapter(activeSubject.id)} className="flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-bold" style={{ backgroundColor: settings.primaryColor }}><Plus size={18} /> {isBN ? 'অধ্যায় যোগ করুন' : 'Add Chapter'}</button>
+                <button 
+                  onClick={() => addChapter(activeSubject.id)} 
+                  className="flex items-center gap-2 px-8 py-4 rounded-[2rem] text-white font-black text-sm shadow-xl transition-all active:scale-95" 
+                  style={{ backgroundColor: settings.primaryColor }}
+                >
+                  <Plus size={18} /> {isBN ? 'অধ্যায় যোগ' : 'Add Chapter'}
+                </button>
               </div>
 
               {activeSubject.chapters.map((chapter) => {
                 const isExpanded = expandedChapters.has(chapter.id);
+                const completedCount = chapter.topics.filter(t => t.completed).length;
+                const totalCount = chapter.topics.length;
+                const chProg = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
                 return (
-                  <div key={chapter.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm group/chapter">
-                    <div onClick={() => toggleChapterExpand(chapter.id)} className="p-6 flex items-center justify-between cursor-pointer">
-                      <div className="flex items-center gap-4 flex-1">
-                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900">{isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</div>
-                        <EditableLabel value={chapter.title} onSave={(val) => renameChapter(activeSubject.id, chapter.id, val)} className="font-bold text-lg dark:text-white" />
+                  <div key={chapter.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden group/chapter">
+                    <div onClick={() => toggleChapterExpand(chapter.id)} className="p-8 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <div className="flex items-center gap-6 flex-1">
+                        <div className={`p-4 rounded-2xl transition-all ${isExpanded ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                          {isExpanded ? <ChevronDown size={22} className="text-indigo-600" style={{ color: settings.primaryColor }} /> : <ChevronRight size={22} className="text-slate-400" />}
+                        </div>
+                        <div className="flex-1">
+                          <EditableLabel 
+                            value={chapter.title} 
+                            onSave={(val) => updateChapter(activeSubject.id, chapter.id, c => ({ ...c, title: val }))} 
+                            className="font-black text-2xl dark:text-white" 
+                          />
+                          <div className="flex items-center gap-3 mt-3">
+                             <div className="w-32 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="h-full transition-all duration-700" style={{ width: `${chProg}%`, backgroundColor: settings.primaryColor }} />
+                             </div>
+                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{completedCount} / {totalCount} Topics Done</span>
+                          </div>
+                        </div>
                       </div>
-                      <button onClick={(e) => { e.stopPropagation(); addTopic(activeSubject.id, chapter.id); }} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 text-xs font-bold hover:bg-slate-200 transition-colors">+ {isBN ? 'টপিক' : 'Topic'}</button>
+                      <div className="flex items-center gap-3 opacity-0 group-hover/chapter:opacity-100 transition-all">
+                        <button onClick={(e) => { e.stopPropagation(); addTopic(activeSubject.id, chapter.id); }} className="px-6 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all">
+                          + Topic
+                        </button>
+                      </div>
                     </div>
 
                     {isExpanded && (
-                      <div className="px-6 pb-6 pt-2 space-y-2 border-t border-slate-50 dark:border-slate-700">
+                      <div className="px-10 pb-10 pt-2 space-y-3 border-t border-slate-50 dark:border-slate-800 bg-slate-50/10 dark:bg-slate-950/20">
                         {chapter.topics.map((topic) => (
-                          <div key={topic.id} className="flex items-center gap-4 p-3 rounded-2xl border border-slate-50 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/20">
-                            <button onClick={() => toggleTopic(activeSubject.id, chapter.id, topic.id)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${topic.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 dark:border-slate-700'}`}>
-                              {topic.completed && <CheckCircle2 size={14} />}
+                          <div key={topic.id} className="flex items-center gap-6 p-5 rounded-[1.5rem] border border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-900/60 group/topic hover:shadow-lg transition-all">
+                            <button 
+                              onClick={() => toggleTopic(activeSubject.id, chapter.id, topic.id)} 
+                              className={`w-9 h-9 rounded-[1rem] border-2 flex items-center justify-center transition-all ${topic.completed ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'}`}
+                            >
+                              {topic.completed && <CheckCircle2 size={20} />}
                             </button>
                             <EditableLabel 
                               value={topic.title} 
-                              onSave={(val) => renameTopic(activeSubject.id, chapter.id, topic.id, val)} 
-                              className={`flex-1 text-sm font-medium ${topic.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`} 
+                              onSave={(val) => updateTopic(activeSubject.id, chapter.id, topic.id, t => ({ ...t, title: val }))} 
+                              className={`flex-1 text-base font-bold ${topic.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`} 
                             />
                             {topic.completed && (
                               <button 
                                 onClick={() => setTopicScore(activeSubject.id, chapter.id, topic.id)}
-                                className={`flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg transition-all ${topic.score ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}
+                                className={`flex items-center gap-2 text-[11px] font-black px-5 py-2.5 rounded-xl transition-all ${topic.score ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600'}`}
                                 style={topic.score ? { backgroundColor: settings.primaryColor } : {}}
                               >
-                                <Star size={10} fill={topic.score ? 'white' : 'none'} /> {topic.score ? `${topic.score}%` : (isBN ? 'স্কোর' : 'SCORE')}
+                                <Star size={14} fill={topic.score ? 'white' : 'none'} /> {topic.score ? `${topic.score}%` : (isBN ? 'স্কোর' : 'SCORE')}
                               </button>
                             )}
                           </div>
@@ -324,13 +411,25 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               })}
             </div>
           ) : (
-            <div className="h-[400px] flex flex-col items-center justify-center bg-white/50 dark:bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-800 text-center">
-              <ClipboardCheck size={48} className="text-slate-200 mb-4" />
-              <h3 className="text-lg font-bold text-slate-400">{isBN ? 'শুরু করতে একটি বিষয় নির্বাচন করুন।' : 'Select a subject to begin'}</h3>
-              <button onClick={syncOfficialSyllabus} className="mt-4 text-xs font-black uppercase tracking-widest text-indigo-600" style={{ color: settings.primaryColor }}>{isBN ? 'অথবা অফিসিয়াল সিলেবাস সিঙ্ক করুন' : 'Or Sync Official Syllabus'}</button>
+            <div className="h-[500px] flex flex-col items-center justify-center bg-white/50 dark:bg-slate-900/50 rounded-[3rem] border-4 border-dashed border-slate-100 dark:border-slate-800 text-center p-12">
+              <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-8">
+                 <GraduationCap size={48} className="text-slate-200" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-400 mb-2">
+                {isBN ? 'প্রোফাইল সিলেক্ট করে সিঙ্ক করুন' : 'Select a profile and start tracking'}
+              </h3>
+              <p className="text-sm text-slate-300 max-w-sm leading-relaxed mb-10">
+                {isBN ? 'আপনার বিভাগের জন্য নির্দিষ্ট এনসিটিবি সিলেবাস পেতে সিঙ্ক বাটনে ক্লিক করুন।' : 'Use the Sync button to fetch official NCTB chapters and topics for your academic profile.'}
+              </p>
+              <button 
+                onClick={syncOfficialSyllabus} 
+                className="flex items-center gap-3 px-10 py-5 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-[2rem] font-black text-slate-400 hover:text-indigo-600 hover:border-indigo-600 transition-all shadow-sm group"
+              >
+                <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" /> {isBN ? 'সিঙ্ক শুরু' : 'Begin Syncing'}
+              </button>
             </div>
           )}
-        </div>
+        </main>
       </div>
     </div>
   );
