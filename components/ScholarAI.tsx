@@ -1,128 +1,239 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, Send, Sparkles, GraduationCap } from 'lucide-react';
+import { 
+  MessageSquare, 
+  X, 
+  Send, 
+  Sparkles, 
+  GraduationCap, 
+  Trash2, 
+  Maximize2, 
+  Minimize2, 
+  ChevronRight,
+  RefreshCw,
+  BookOpen,
+  Brain,
+  Timer
+} from 'lucide-react';
 import { scholarChat } from '../services/geminiService';
 import { AppSettings } from '../types';
 
+interface Message {
+  role: 'user' | 'ai';
+  text: string;
+}
+
 const ScholarAI: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([
-    { role: 'ai', text: 'Hello Scholar! How can I help you ace your exams today?' }
-  ]);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = localStorage.getItem('scholars_ai_history');
+    return saved ? JSON.parse(saved) : [
+      { role: 'ai', text: 'Hello Scholar! I am your AI Study Buddy. How can I help you ace your exams today?' }
+    ];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  // Persist history
+  useEffect(() => {
+    localStorage.setItem('scholars_ai_history', JSON.stringify(messages));
+  }, [messages]);
 
-    const userMsg = input;
+  const handleSend = async (customText?: string) => {
+    const textToSend = customText || input;
+    if (!textToSend.trim() || isLoading) return;
+
+    const userMsg = textToSend;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setIsLoading(true);
 
     try {
-      const response = await scholarChat(userMsg);
+      // Map local history to API format
+      const historyForApi = messages.map(m => ({
+        role: (m.role === 'user' ? 'user' : 'model') as 'user' | 'model',
+        parts: [{ text: m.text }]
+      }));
+
+      const response = await scholarChat(userMsg, historyForApi);
       setMessages(prev => [...prev, { role: 'ai', text: response }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'ai', text: "I'm having trouble connecting right now. Please check your connection." }]);
+      setMessages(prev => [...prev, { role: 'ai', text: "I'm having trouble connecting right now. Please check your API key or connection." }]);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const clearChat = () => {
+    if (confirm("Clear chat history?")) {
+      setMessages([{ role: 'ai', text: 'History cleared. What should we study next?' }]);
+    }
+  };
+
+  const suggestions = [
+    { text: "How's my progress?", icon: BookOpen },
+    { text: "Study tips for Math", icon: Brain },
+    { text: "Explain Focus Timer", icon: Timer },
+    { text: "Help me stay motivated", icon: Sparkles }
+  ];
 
   return (
     <div className="fixed bottom-6 right-6 z-[1000] flex flex-col items-end">
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95, transformOrigin: 'bottom right' }}
+            animate={{ 
+              opacity: 1, 
+              y: 0, 
+              scale: 1,
+              width: isMaximized ? '600px' : '400px',
+              height: isMaximized ? '700px' : '550px',
+            }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="mb-4 w-[350px] md:w-[400px] h-[500px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden glass-card"
+            className={`mb-4 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden glass-card transition-all duration-300`}
           >
-            <div className="p-4 border-b dark:border-slate-800 flex items-center justify-between bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/40" style={{ color: settings.primaryColor }}>
-                  <Sparkles size={20} />
+            {/* Header */}
+            <div className="p-5 border-b dark:border-slate-800 flex items-center justify-between bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400" style={{ color: settings.primaryColor, backgroundColor: `${settings.primaryColor}1A` }}>
+                  <Sparkles size={20} className="animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm dark:text-white">Scholar AI</h3>
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Always Learning</span>
+                  <h3 className="font-black text-sm dark:text-white tracking-tight">Scholar AI Buddy</h3>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Active Assistant</span>
                   </div>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400">
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setIsMaximized(!isMaximized)} 
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400"
+                >
+                  {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                </button>
+                <button 
+                  onClick={clearChat} 
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400 hover:text-rose-500"
+                >
+                  <Trash2 size={16} />
+                </button>
+                <button 
+                  onClick={() => setIsOpen(false)} 
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Suggestions Chips (Only shown when no history or small history) */}
+            <div className="px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+              {suggestions.map((s, idx) => (
+                <button 
+                  key={idx}
+                  onClick={() => handleSend(s.text)}
+                  className="flex items-center gap-2 whitespace-nowrap px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all active:scale-95 shadow-sm"
+                >
+                  <s.icon size={12} /> {s.text}
+                </button>
+              ))}
+            </div>
+
+            {/* Chat Body */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6 bg-slate-50/30 dark:bg-slate-950/20">
               {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${
-                    m.role === 'user' 
-                      ? 'bg-indigo-600 text-white rounded-tr-none' 
-                      : 'bg-slate-100 dark:bg-slate-800 dark:text-slate-200 rounded-tl-none'
-                  }`}
-                  style={m.role === 'user' ? { backgroundColor: settings.primaryColor } : {}}
-                  >
-                    {m.text}
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}>
+                  <div className={`max-w-[85%] flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm ${m.role === 'user' ? 'bg-white dark:bg-slate-800' : 'text-white'}`} style={m.role === 'ai' ? { backgroundColor: settings.primaryColor } : {}}>
+                      {m.role === 'user' ? <GraduationCap size={16} className="text-slate-400" /> : <Sparkles size={16} />}
+                    </div>
+                    <div className={`p-4 rounded-[1.5rem] text-sm leading-relaxed shadow-sm ${
+                      m.role === 'user' 
+                        ? 'bg-indigo-600 text-white rounded-tr-none' 
+                        : 'bg-white dark:bg-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-700'
+                    }`}
+                    style={m.role === 'user' ? { backgroundColor: settings.primaryColor } : {}}
+                    >
+                      {m.text}
+                    </div>
                   </div>
                 </div>
               ))}
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl rounded-tl-none space-x-1 flex">
-                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                       <RefreshCw size={14} className="text-slate-400 animate-spin" />
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-5 py-3 rounded-2xl rounded-tl-none flex gap-1.5 items-center">
+                      <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                      <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                      <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" />
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="p-4 border-t dark:border-slate-800">
-              <div className="relative">
+            {/* Input Area */}
+            <div className="p-5 bg-white dark:bg-slate-900 border-t dark:border-slate-800">
+              <div className="relative group">
                 <input
                   type="text"
-                  placeholder="Ask me anything..."
-                  className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl py-3 pl-4 pr-12 text-sm focus:ring-2 focus:ring-indigo-500/20 dark:text-white"
+                  placeholder="Ask for advice, explanations, or summaries..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-[1.5rem] py-4 pl-5 pr-14 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 dark:text-white shadow-inner transition-all"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 />
                 <button
-                  onClick={handleSend}
-                  className="absolute right-2 top-1.5 p-2 rounded-xl text-white shadow-lg transition-all active:scale-90"
+                  onClick={() => handleSend()}
+                  disabled={!input.trim() || isLoading}
+                  className="absolute right-2 top-2 p-2.5 rounded-xl text-white shadow-xl transition-all active:scale-90 disabled:opacity-0 disabled:scale-90"
                   style={{ backgroundColor: settings.primaryColor }}
                 >
-                  <Send size={16} />
+                  <Send size={18} />
                 </button>
               </div>
+              <p className="mt-3 text-[9px] text-center font-black text-slate-300 uppercase tracking-widest">Powered by Scholar AI Intelligence</p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Toggle Button */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.05, rotate: 5 }}
+        whileTap={{ scale: 0.95, rotate: -5 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="p-4 rounded-full shadow-2xl text-white flex items-center justify-center relative overflow-hidden"
+        className="group p-5 rounded-[2rem] shadow-2xl text-white flex items-center justify-center relative overflow-hidden transition-all duration-300 active:shadow-indigo-500/40"
         style={{ backgroundColor: settings.primaryColor }}
       >
-        <div className="absolute inset-0 bg-white/10" />
-        {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
+        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="relative flex items-center gap-2">
+          {isOpen ? <X size={28} /> : (
+            <>
+              <MessageSquare size={28} />
+              {!isOpen && <span className="text-xs font-black uppercase tracking-widest pr-2 hidden md:inline">Study Buddy</span>}
+            </>
+          )}
+        </div>
+        {!isOpen && (
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full animate-pulse shadow-md" />
+        )}
       </motion.button>
     </div>
   );

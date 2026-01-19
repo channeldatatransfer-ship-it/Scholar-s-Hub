@@ -47,14 +47,37 @@ export const simplifyContent = async (content: string) => {
   return response.text || "";
 };
 
-export const scholarChat = async (message: string, context?: string) => {
+export const scholarChat = async (message: string, history: { role: 'user' | 'model'; parts: { text: string }[] }[] = []) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  // Extract context from localStorage for a more personalized experience
+  const syllabus = localStorage.getItem('scholars_syllabuses_v2') || '[]';
+  const tasks = localStorage.getItem('scholars_tasks') || '[]';
+  
+  const systemInstruction = `You are Scholar AI, the student's personal Study Buddy. 
+  Current context of the student:
+  - Syllabus Progress: ${syllabus}
+  - Active Tasks: ${tasks}
+
+  Your goals:
+  1. Help with academic questions (Science, Math, History, etc.).
+  2. Help organize study sessions.
+  3. Be encouraging, concise, and professional.
+  4. If asked about their progress, use the provided Syllabus data to give insights (e.g., "You are 60% done with Physics!").
+  5. Use Markdown for formatting (bold, bullet points).
+  6. If the student seems overwhelmed, suggest a 5-minute break.
+  `;
+
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
-    contents: message,
+    contents: [
+      ...history,
+      { role: 'user', parts: [{ text: message }] }
+    ],
     config: {
-      systemInstruction: "You are Scholar AI, a brilliant and friendly study tutor. You help students understand complex topics, stay motivated, and organize their studies. Be concise, encouraging, and academic but accessible. If the student asks about a subject you don't know, suggest they check their 'Resource Library'.",
+      systemInstruction: systemInstruction,
     }
   });
-  return response.text || "I'm sorry, I couldn't process that. Can you try rephrasing?";
+  
+  return response.text || "I'm sorry, I'm having trouble thinking right now. Could you repeat that?";
 };
