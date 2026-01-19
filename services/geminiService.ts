@@ -51,6 +51,49 @@ export const generateTemplateFromAi = async (prompt: string) => {
   return JSON.parse(response.text || '{}');
 };
 
+export const getStudyAdvise = async (syllabusData: string, focusData: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: `As an expert academic coach, analyze this student's progress and provide 3 short, punchy, and highly actionable tips for today.
+    Syllabus Progress: ${syllabusData}
+    Focus Hours Log: ${focusData}
+    Return the advice in simple markdown format.`,
+  });
+  return response.text || "Keep pushing forward, Scholar!";
+};
+
+export const autoScheduleEvents = async (syllabus: string, existingEvents: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Analyze the student's syllabus and existing schedule. Suggest 3 high-priority study sessions for the next 48 hours.
+    Syllabus: ${syllabus}
+    Current Events: ${existingEvents}
+    Current Date: ${new Date().toISOString()}
+    
+    Return a JSON array of events: [{ "title": string, "category": string, "time": "HH:MM", "date": "YYYY-MM-DD" }]
+    Ensure the date is today or tomorrow. Categories should be 'Math', 'Science', 'Languages', or 'General'.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            category: { type: Type.STRING },
+            time: { type: Type.STRING },
+            date: { type: Type.STRING }
+          },
+          required: ["title", "category", "time", "date"]
+        }
+      }
+    }
+  });
+  return JSON.parse(response.text || '[]');
+};
+
 export const generateConceptImage = async (conceptTitle: string, description: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `A clear, high-quality educational diagram or visual aid for the scientific/academic concept: "${conceptTitle}". Context: ${description}. Style: Minimalist, clean 3D illustration or flat educational vector, white background, informative and accurate.`;

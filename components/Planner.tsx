@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Wand2, Trash2, Clock, MapPin } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Wand2, Trash2, Clock, MapPin, Sparkles, RefreshCw } from 'lucide-react';
 import { AppSettings, CalendarEvent } from '../types';
+import { autoScheduleEvents } from '../services/geminiService';
 
 const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
-  // Helper to get local date string YYYY-MM-DD
   const toLocalDateString = (date: Date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -23,6 +24,7 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   });
 
   const [showAddEvent, setShowAddEvent] = useState(false);
+  const [isAiScheduling, setIsAiScheduling] = useState(false);
   const [newEvent, setNewEvent] = useState({ title: '', category: 'General', time: '09:00' });
 
   useEffect(() => {
@@ -35,6 +37,28 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const month = viewDate.getMonth();
   const year = viewDate.getFullYear();
   const monthName = viewDate.toLocaleString('default', { month: 'long' });
+
+  const handleAiSchedule = async () => {
+    setIsAiScheduling(true);
+    try {
+      const syllabus = localStorage.getItem('scholars_syllabuses_v2') || '[]';
+      const existing = JSON.stringify(events);
+      const suggested = await autoScheduleEvents(syllabus, existing);
+      
+      if (suggested && suggested.length > 0) {
+        const mapped = suggested.map((ev: any) => ({
+          ...ev,
+          id: `ai-${Date.now()}-${Math.random()}`
+        }));
+        setEvents(prev => [...prev, ...mapped]);
+        alert(settings.language === 'BN' ? 'এআই ৩টি নতুন স্টাডি সেশন আপনার প্ল্যানারে যুক্ত করেছে!' : 'AI has added 3 new study sessions to your planner!');
+      }
+    } catch (e) {
+      alert("AI was unable to generate a schedule right now.");
+    } finally {
+      setIsAiScheduling(false);
+    }
+  };
 
   const handleAddEvent = () => {
     if (!newEvent.title) return;
@@ -74,11 +98,13 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         </div>
         <div className="flex gap-3">
            <button 
-            onClick={() => alert("AI is analyzing your empty slots... (Simulated)")}
-            className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-8 py-4 rounded-[2rem] font-bold flex items-center gap-2 hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-800"
+            onClick={handleAiSchedule}
+            disabled={isAiScheduling}
+            className={`px-8 py-4 rounded-[2rem] font-bold flex items-center gap-2 transition-all border border-indigo-100 dark:border-indigo-800 ${isAiScheduling ? 'opacity-70 animate-pulse' : 'hover:bg-indigo-100 shadow-lg'}`}
             style={{ color: settings.primaryColor, backgroundColor: `${settings.primaryColor}1A`, borderColor: `${settings.primaryColor}33` }}
            >
-             <Wand2 className="w-5 h-5" /> AI Auto-Schedule
+             {isAiScheduling ? <RefreshCw className="animate-spin" /> : <Wand2 className="w-5 h-5" />}
+             {isAiScheduling ? 'Optimizing...' : 'AI Auto-Schedule'}
            </button>
            <button 
             onClick={() => setShowAddEvent(true)}
@@ -145,8 +171,20 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               </div>
               
               <div className="flex-1 space-y-4 overflow-y-auto">
+                <AnimatePresence>
                 {dayEvents.map(event => (
-                  <div key={event.id} className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 relative group animate-in slide-in-from-right duration-300">
+                  <motion.div 
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    key={event.id} 
+                    className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 relative group"
+                  >
+                    {event.id.startsWith('ai-') && (
+                      <div className="absolute -top-2 -right-2 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
+                        <Sparkles size={12} />
+                      </div>
+                    )}
                     <button 
                       onClick={() => deleteEvent(event.id)}
                       className="absolute top-4 right-4 p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -157,10 +195,11 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                     <p className="font-bold text-slate-800 dark:text-white mb-4 leading-tight">{event.title}</p>
                     <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                        <span className="flex items-center gap-1"><Clock size={12} /> {event.time}</span>
-                       <span className="flex items-center gap-1"><MapPin size={12} /> Study Hall</span>
+                       <span className="flex items-center gap-1"><MapPin size={12} /> {event.id.startsWith('ai-') ? 'Suggested Slot' : 'Study Hall'}</span>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
+                </AnimatePresence>
                 {dayEvents.length === 0 && (
                   <div className="py-20 text-center flex flex-col items-center justify-center space-y-4">
                     <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
@@ -174,10 +213,11 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         </div>
       </div>
 
+      <AnimatePresence>
       {showAddEvent && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-           <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setShowAddEvent(false)} />
-           <div className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3.5rem] p-10 shadow-2xl animate-in zoom-in duration-300">
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setShowAddEvent(false)} />
+           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3.5rem] p-10 shadow-2xl">
               <h3 className="text-3xl font-black mb-10 dark:text-white">New Study Event</h3>
               <div className="space-y-6">
                  <div className="space-y-2">
@@ -225,9 +265,10 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                     </button>
                  </div>
               </div>
-           </div>
+           </motion.div>
         </div>
       )}
+      </AnimatePresence>
     </div>
   );
 };

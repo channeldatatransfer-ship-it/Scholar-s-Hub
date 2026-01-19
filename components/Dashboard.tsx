@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Trophy, 
   Flame, 
@@ -10,13 +11,16 @@ import {
   BarChart3,
   CalendarDays,
   Target,
-  History
+  History,
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, LineChart, Line
+  LineChart, Line
 } from 'recharts';
 import { Syllabus, AppSettings, FocusLog } from '../types';
+import { getStudyAdvise } from '../services/geminiService';
 
 const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const isBN = settings.language === 'BN';
@@ -29,6 +33,8 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   const [syllabuses, setSyllabuses] = useState<Syllabus[]>([]);
   const [focusLogs, setFocusLogs] = useState<FocusLog[]>([]);
+  const [aiAdvise, setAiAdvise] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   useEffect(() => {
     const savedSyllabus = localStorage.getItem('scholars_syllabuses_v2');
@@ -44,15 +50,6 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     return topics.map((t, i) => ({ name: `T${i+1}`, score: t.score }));
   }, [syllabuses]);
 
-  const focusData = useMemo(() => {
-    const distribution: Record<string, number> = {};
-    focusLogs.forEach(log => {
-      distribution[log.subjectId] = (distribution[log.subjectId] || 0) + log.minutes;
-    });
-    return Object.entries(distribution).map(([name, value]) => ({ name, value }));
-  }, [focusLogs]);
-
-  // Consistency Heatmap logic
   const heatmapData = useMemo(() => {
     const last30Days = Array.from({ length: 30 }, (_, i) => {
       const d = new Date();
@@ -69,9 +66,21 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     return last30Days.map(date => ({
       date,
       minutes: counts[date] || 0,
-      intensity: Math.min(Math.floor((counts[date] || 0) / 30), 4) // max intensity at 2 hours
+      intensity: Math.min(Math.floor((counts[date] || 0) / 30), 4)
     }));
   }, [focusLogs]);
+
+  const fetchAiCoach = async () => {
+    setIsAiLoading(true);
+    try {
+      const advice = await getStudyAdvise(JSON.stringify(syllabuses), JSON.stringify(focusLogs));
+      setAiAdvise(advice);
+    } catch (e) {
+      setAiAdvise("Your progress looks solid! Keep up the consistency.");
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
 
   const getProgress = (syllabus: Syllabus) => {
     const allTopics = syllabus.chapters.flatMap(c => c.topics);
@@ -80,7 +89,6 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     return Math.round((completed / allTopics.length) * 100);
   };
 
-  const COLORS = [settings.primaryColor, '#10b981', '#f59e0b', '#e11d48', '#8b5cf6', '#0ea5e9'];
   const INTENSITY_COLORS = ['#f1f5f9', '#e0e7ff', '#818cf8', '#4f46e5', '#312e81'];
 
   const avgScore = performanceData.some(d => (d.score ?? 0) > 0) 
@@ -130,7 +138,40 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          {/* Heatmap Section */}
+          {/* AI Coach Card */}
+          <section className="bg-indigo-600 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden text-white">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl">
+                    <Sparkles size={24} />
+                  </div>
+                  <h2 className="text-2xl font-black">{isBN ? 'এআই স্টাডি কোচ' : 'AI Study Coach'}</h2>
+                </div>
+                <button 
+                  onClick={fetchAiCoach}
+                  disabled={isAiLoading}
+                  className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all"
+                >
+                  <RefreshCw className={isAiLoading ? 'animate-spin' : ''} size={20} />
+                </button>
+              </div>
+              <div className="flex-1 bg-white/10 backdrop-blur-md rounded-[2rem] p-6">
+                {aiAdvise ? (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="prose prose-invert prose-sm max-w-none">
+                    {aiAdvise}
+                  </motion.div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-60">
+                    <BrainChartIcon className="w-12 h-12" />
+                    <p className="text-sm font-bold">Click the refresh icon to get personalized AI advice based on your current progress.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
           <section className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800">
              <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
@@ -232,5 +273,13 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     </div>
   );
 };
+
+const BrainChartIcon = (props: any) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z" />
+    <path d="m16 12-4-4-4 4" />
+    <path d="M12 8v8" />
+  </svg>
+);
 
 export default Dashboard;
