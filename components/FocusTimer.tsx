@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-/* Added missing AnimatePresence and motion imports from framer-motion to fix the identified errors */
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, 
@@ -14,23 +14,36 @@ import {
   Volume1,
   Coffee,
   Brain,
-  Sparkles
+  Sparkles,
+  Settings as SettingsIcon,
+  Check,
+  X
 } from 'lucide-react';
 import { AppSettings, Syllabus, FocusLog } from '../types';
 
 const AMBIENT_URLS = {
-  rain: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3', // Generic rain loop
-  forest: 'https://assets.mixkit.co/active_storage/sfx/1117/1117-preview.mp3', // Generic forest loop
-  white: 'https://assets.mixkit.co/active_storage/sfx/2355/2355-preview.mp3' // Generic wind/white noise
+  rain: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3',
+  forest: 'https://assets.mixkit.co/active_storage/sfx/1117/1117-preview.mp3',
+  white: 'https://assets.mixkit.co/active_storage/sfx/2355/2355-preview.mp3'
 };
 
 const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const isBN = settings.language === 'BN';
   
+  // Custom Durations State
+  const [durations, setDurations] = useState(() => {
+    const saved = localStorage.getItem('scholars_focus_settings');
+    return saved ? JSON.parse(saved) : { work: 25, short: 5, long: 15 };
+  });
+
   // Timer State
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [isActive, setIsActive] = useState(false);
   const [mode, setMode] = useState<'work' | 'short' | 'long'>('work');
+  const [timeLeft, setTimeLeft] = useState(durations[mode] * 60);
+  const [isActive, setIsActive] = useState(false);
+  
+  // UI State
+  const [showSettings, setShowSettings] = useState(false);
+  const [tempDurations, setTempDurations] = useState(durations);
   
   // Audio State
   const [ambientSound, setAmbientSound] = useState<'none' | 'rain' | 'forest' | 'white'>('none');
@@ -43,23 +56,23 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   
   // Refs for Audio Objects
   const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
-  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('scholars_syllabuses_v2');
     if (saved) setSubjects(JSON.parse(saved));
   }, []);
 
-  // Handle Mode Change
+  // Sync durations to localStorage
   useEffect(() => {
-    const times = {
-      work: 25 * 60,
-      short: 5 * 60,
-      long: 15 * 60
-    };
-    setTimeLeft(times[mode]);
-    setIsActive(false);
-  }, [mode]);
+    localStorage.setItem('scholars_focus_settings', JSON.stringify(durations));
+  }, [durations]);
+
+  // Handle Mode Change or Duration Change
+  useEffect(() => {
+    if (!isActive) {
+      setTimeLeft(durations[mode] * 60);
+    }
+  }, [mode, durations]);
 
   // Handle Ambient Sound Playback
   useEffect(() => {
@@ -105,18 +118,17 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   }, [isActive, timeLeft]);
 
   const handleSessionComplete = () => {
-    // Play Notification
     const finishSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     finishSound.volume = volume;
     finishSound.play();
 
     if (mode === 'work') {
-      logSession(25);
-      const msg = isBN ? 'দারুণ! আপনার ফোকাস সেশন শেষ হয়েছে। ৫ মিনিট বিরতি নিন।' : 'Great job! Focus session complete. Take a 5-minute break.';
+      logSession(durations.work);
+      const msg = isBN ? 'দারুণ! আপনার ফোকাস সেশন শেষ হয়েছে। ৫ মিনিট বিরতি নিন।' : 'Great job! Focus session complete. Take a break.';
       alert(msg);
       setMode('short');
     } else {
-      const msg = isBN ? 'বিরতি শেষ! আবার পড়ার সময় হয়েছে।' : 'Break over! Time to get back to work.';
+      const msg = isBN ? 'বিরতি শেষ! আবার পড়ার সময় হয়েছে। ' : 'Break over! Time to get back to work.';
       alert(msg);
       setMode('work');
     }
@@ -138,8 +150,12 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   const resetTimer = () => {
     setIsActive(false);
-    const times = { work: 25 * 60, short: 5 * 60, long: 15 * 60 };
-    setTimeLeft(times[mode]);
+    setTimeLeft(durations[mode] * 60);
+  };
+
+  const saveSettings = () => {
+    setDurations(tempDurations);
+    setShowSettings(false);
   };
 
   const formatTime = (seconds: number) => {
@@ -154,10 +170,9 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     { id: 'white', icon: Wind, label: isBN ? 'বাতাস' : 'Wind' },
   ];
 
-  const totalTime = mode === 'work' ? 25 * 60 : mode === 'short' ? 5 * 60 : 15 * 60;
-  const progress = (timeLeft / totalTime) * 100;
+  const totalSeconds = durations[mode] * 60;
+  const progress = (timeLeft / totalSeconds) * 100;
   
-  // Theme Color based on Mode
   const modeColor = mode === 'work' ? settings.primaryColor : mode === 'short' ? '#10b981' : '#f59e0b';
   const modeIcon = mode === 'work' ? <Brain size={20} /> : <Coffee size={20} />;
 
@@ -191,7 +206,7 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           </div>
         </div>
 
-        <div className="flex bg-white dark:bg-slate-900 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex bg-white dark:bg-slate-900 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm relative">
           {(['work', 'short', 'long'] as const).map((m) => (
             <button 
               key={m}
@@ -202,8 +217,49 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               {m === 'work' ? (isBN ? 'পমোডোরো' : 'Focus') : m === 'short' ? (isBN ? 'বিরতি' : 'Short') : (isBN ? 'দীর্ঘ বিরতি' : 'Long')}
             </button>
           ))}
+          <button 
+            onClick={() => { setShowSettings(!showSettings); setTempDurations(durations); }}
+            className={`ml-2 p-2 rounded-xl transition-all ${showSettings ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300 hover:text-slate-500'}`}
+          >
+            <SettingsIcon size={18} />
+          </button>
         </div>
       </div>
+
+      {/* Timer Settings Overlay */}
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="mb-12 p-8 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl w-full max-w-2xl"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">{isBN ? 'সময় নির্ধারণ করুন' : 'Custom Durations (min)'}</h3>
+              <div className="flex gap-2">
+                <button onClick={() => setShowSettings(false)} className="p-2 text-slate-400 hover:text-rose-500"><X size={20} /></button>
+                <button onClick={saveSettings} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg"><Check size={20} /></button>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-6">
+              {Object.keys(durations).map((key) => (
+                <div key={key} className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{key}</label>
+                  <input 
+                    type="number"
+                    min="1"
+                    max="120"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 text-center font-bold dark:text-white focus:ring-2 focus:ring-indigo-500/20"
+                    value={tempDurations[key as keyof typeof durations]}
+                    onChange={(e) => setTempDurations({ ...tempDurations, [key]: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Timer Display */}
       <div className="relative w-80 h-80 flex items-center justify-center mb-12">
@@ -274,7 +330,6 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           
           <AnimatePresence>
             {showVolumeSlider && (
-              /* Converted container to motion.div and added animation props to work correctly with AnimatePresence */
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}

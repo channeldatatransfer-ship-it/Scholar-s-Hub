@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ClipboardCheck, 
   Plus, 
@@ -15,7 +16,12 @@ import {
   Sparkles,
   Trophy,
   BookMarked,
-  GraduationCap
+  GraduationCap,
+  Zap,
+  Layers,
+  Search,
+  ChevronLeft,
+  X
 } from 'lucide-react';
 import { Syllabus, AppSettings, AcademicGroup, Chapter, Topic } from '../types';
 import { fetchSyllabusForLevel } from '../services/geminiService';
@@ -77,8 +83,13 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [activeSubjectId, setActiveSubjectId] = useState<string | null>(syllabuses[0]?.id || null);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
+  
+  // Sync States
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStep, setSyncStep] = useState(0);
   const [selectedGroup, setSelectedGroup] = useState<AcademicGroup>(settings.academicGroup || 'Science');
+  const [syncData, setSyncData] = useState<Syllabus[] | null>(null);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('scholars_syllabuses_v2', JSON.stringify(syllabuses));
@@ -96,8 +107,6 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     ? Math.round(syllabuses.reduce((acc, s) => acc + getSubjectProgress(s), 0) / syllabuses.length) 
     : 0;
 
-  // --- REFACTORED STATE UPDATERS TO PREVENT SYNTAX ERRORS ---
-  
   const updateSubject = (id: string, updater: (s: Syllabus) => Syllabus) => {
     setSyllabuses(prev => prev.map(s => s.id === id ? updater(s) : s));
   };
@@ -116,21 +125,17 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     }));
   };
 
-  // --- ACTIONS ---
-
-  const syncOfficialSyllabus = async () => {
-    const confirmMsg = isBN 
-      ? `আপনি কি ${selectedGroup} বিভাগের অফিসিয়াল এনসিটিবি সিলেবাস সিঙ্ক করতে চান?` 
-      : `Sync the official NCTB ${selectedGroup} Syllabus?`;
-    
-    if (!confirm(confirmMsg)) return;
-
+  const handleSyncInitiate = async () => {
     setIsSyncing(true);
+    setSyncStep(1); // Searching
     try {
       const data = await fetchSyllabusForLevel(settings.examLevel, selectedGroup);
+      setSyncStep(2); // Parsing
+      await new Promise(r => setTimeout(r, 800));
+      
       if (data && Array.isArray(data)) {
         const colors = ['indigo', 'emerald', 'rose', 'amber', 'purple', 'blue', 'cyan', 'teal'];
-        const newSyllabuses: Syllabus[] = data.map((item: any, idx: number) => ({
+        const mapped: Syllabus[] = data.map((item: any, idx: number) => ({
           id: `sync-${idx}-${Date.now()}`,
           subject: item.subject,
           color: colors[idx % colors.length],
@@ -144,15 +149,29 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             }))
           }))
         }));
-        setSyllabuses(newSyllabuses);
-        if (newSyllabuses.length > 0) setActiveSubjectId(newSyllabuses[0].id);
+        setSyncData(mapped);
+        setSyncStep(3); // Review
+      } else {
+        throw new Error("Invalid data format");
       }
     } catch (err) {
-      console.error(err);
-      alert("Sync failed. Check connection.");
-    } finally {
+      alert("Failed to sync syllabus. Please try again.");
       setIsSyncing(false);
+      setSyncStep(0);
     }
+  };
+
+  const applySync = (type: 'replace' | 'append') => {
+    if (!syncData) return;
+    if (type === 'replace') {
+      setSyllabuses(syncData);
+    } else {
+      setSyllabuses([...syllabuses, ...syncData]);
+    }
+    if (syncData.length > 0) setActiveSubjectId(syncData[0].id);
+    setIsSyncing(false);
+    setSyncStep(0);
+    setSyncData(null);
   };
 
   const addSubject = () => {
@@ -171,14 +190,14 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   };
 
   const deleteSubject = (id: string) => {
-    if (!confirm("Delete entire subject?")) return;
+    if (!confirm(isBN ? "পুরো বিষয়টি মুছে ফেলবেন?" : "Delete entire subject?")) return;
     const filtered = syllabuses.filter(s => s.id !== id);
     setSyllabuses(filtered);
     if (activeSubjectId === id) setActiveSubjectId(filtered[0]?.id || null);
   };
 
   const addChapter = (sId: string) => {
-    const title = prompt("Chapter Name:");
+    const title = prompt(isBN ? "অধ্যায়ের নাম:" : "Chapter Name:");
     if (!title) return;
     updateSubject(sId, s => ({
       ...s,
@@ -187,7 +206,7 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   };
 
   const addTopic = (sId: string, cId: string) => {
-    const title = prompt("Topic Name:");
+    const title = prompt(isBN ? "টপিকের নাম:" : "Topic Name:");
     if (!title) return;
     updateChapter(sId, cId, c => ({
       ...c,
@@ -200,7 +219,7 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   };
 
   const setTopicScore = (sId: string, cId: string, tId: string) => {
-    const score = prompt("Score (0-100):");
+    const score = prompt(isBN ? "স্কোর (০-১০০):" : "Score (0-100):");
     if (score === null) return;
     const num = parseInt(score);
     if (!isNaN(num)) {
@@ -234,7 +253,6 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          {/* Profile Quick Switch */}
           <div className="flex bg-white dark:bg-slate-900 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
              {(['Science', 'Commerce', 'Humanities'] as AcademicGroup[]).map(group => (
                <button
@@ -249,19 +267,18 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           </div>
 
           <button 
-            onClick={syncOfficialSyllabus}
+            onClick={handleSyncInitiate}
             disabled={isSyncing}
-            className={`flex items-center gap-2 px-8 py-4 rounded-[2rem] font-black text-white transition-all shadow-xl active:scale-95 whitespace-nowrap ${isSyncing ? 'animate-pulse opacity-70' : ''}`}
+            className={`flex items-center gap-2 px-8 py-4 rounded-[2rem] font-black text-white transition-all shadow-xl active:scale-95 whitespace-nowrap ${isSyncing ? 'opacity-70' : ''}`}
             style={{ backgroundColor: settings.primaryColor }}
           >
             {isSyncing ? <RefreshCw className="animate-spin" /> : <Sparkles />}
-            {isBN ? 'সিলেবাস সিঙ্ক' : 'Sync Syllabus'}
+            {isBN ? 'অফিসিয়াল সিলেবাস সিঙ্ক' : 'Sync Official Syllabus'}
           </button>
         </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-        {/* Left Nav: Subjects & Mastery */}
         <aside className="lg:col-span-1 space-y-6 lg:sticky lg:top-8">
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between mb-8">
@@ -309,7 +326,6 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               </div>
            </div>
 
-           {/* Overall Mastery Card */}
            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-500/30">
               <Trophy className="w-10 h-10 mb-6 opacity-40" />
               <h3 className="text-xl font-black mb-2">{isBN ? 'সামগ্রিক আয়ত্ত' : 'Overall Mastery'}</h3>
@@ -323,7 +339,6 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
            </div>
         </aside>
 
-        {/* Right Content: Detailed Hierarchy */}
         <main className="lg:col-span-3 space-y-6">
           {activeSubject ? (
             <div className="space-y-6 animate-in slide-in-from-right duration-500">
@@ -422,7 +437,7 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                 {isBN ? 'আপনার বিভাগের জন্য নির্দিষ্ট এনসিটিবি সিলেবাস পেতে সিঙ্ক বাটনে ক্লিক করুন।' : 'Use the Sync button to fetch official NCTB chapters and topics for your academic profile.'}
               </p>
               <button 
-                onClick={syncOfficialSyllabus} 
+                onClick={handleSyncInitiate} 
                 className="flex items-center gap-3 px-10 py-5 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-[2rem] font-black text-slate-400 hover:text-indigo-600 hover:border-indigo-600 transition-all shadow-sm group"
               >
                 <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" /> {isBN ? 'সিঙ্ক শুরু' : 'Begin Syncing'}
@@ -431,6 +446,73 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           )}
         </main>
       </div>
+
+      {/* Magic Sync Overlay */}
+      <AnimatePresence>
+        {isSyncing && (
+          <div className="fixed inset-0 z-[2500] flex items-center justify-center p-10">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[4rem] overflow-hidden shadow-2xl flex flex-col min-h-[500px]">
+              
+              <div className="flex-1 p-12 flex flex-col items-center justify-center text-center">
+                {syncStep < 3 ? (
+                  <div className="space-y-12">
+                     <div className="relative mx-auto w-40 h-40">
+                        <div className="absolute inset-0 border-8 border-indigo-500/20 rounded-[3rem] animate-pulse" />
+                        <div className="absolute inset-0 border-t-8 border-indigo-500 rounded-[3rem] animate-spin" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Sparkles size={48} className="text-indigo-600 animate-bounce" />
+                        </div>
+                     </div>
+                     <div className="space-y-4">
+                        <h3 className="text-4xl font-black dark:text-white">
+                          {syncStep === 1 ? (isBN ? 'এনসিটিবি ডেটাবেস খোঁজা হচ্ছে...' : 'Searching NCTB Database...') : (isBN ? 'সিলেবাস ম্যাপিং চলছে...' : 'Mapping Curriculum...')}
+                        </h3>
+                        <p className="text-slate-400 max-w-md mx-auto leading-relaxed">
+                          Scholar AI is grounding the current {settings.examLevel} {selectedGroup} curriculum. This process ensures all topics match the latest board standards.
+                        </p>
+                     </div>
+                     <div className="w-full max-w-sm h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mx-auto">
+                        <motion.div initial={{ width: '0%' }} animate={{ width: syncStep === 1 ? '50%' : '90%' }} className="h-full bg-indigo-600" style={{ backgroundColor: settings.primaryColor }} />
+                     </div>
+                  </div>
+                ) : (
+                  <div className="w-full space-y-10 animate-in fade-in duration-500">
+                     <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-full w-fit mx-auto mb-4">
+                        <CheckCircle2 size={64} className="text-emerald-500" />
+                     </div>
+                     <h3 className="text-4xl font-black dark:text-white">{isBN ? 'সিলেবাস পাওয়া গেছে!' : 'Curriculum Found!'}</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[300px] overflow-y-auto px-4 no-scrollbar">
+                        {syncData?.map((s, idx) => (
+                          <div key={idx} className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl text-left border border-slate-100 dark:border-slate-700">
+                             <h4 className="font-black text-slate-700 dark:text-white mb-1">{s.subject}</h4>
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.chapters.length} Chapters Identified</p>
+                          </div>
+                        ))}
+                     </div>
+                     <div className="flex flex-col md:flex-row gap-4 pt-6">
+                        <button 
+                          onClick={() => applySync('append')}
+                          className="flex-1 py-5 rounded-[2rem] bg-slate-100 dark:bg-slate-800 text-slate-600 font-black text-lg transition-all hover:bg-slate-200"
+                        >
+                          {isBN ? 'বর্তমানে যোগ করুন' : 'Merge with Existing'}
+                        </button>
+                        <button 
+                          onClick={() => applySync('replace')}
+                          className="flex-[2] py-5 rounded-[2rem] text-white font-black text-lg shadow-2xl transition-all hover:brightness-110"
+                          style={{ backgroundColor: settings.primaryColor }}
+                        >
+                          {isBN ? 'সব মুছে নতুন শুরু করুন' : 'Replace & Start Fresh'}
+                        </button>
+                     </div>
+                     <button onClick={() => { setIsSyncing(false); setSyncStep(0); }} className="text-slate-400 text-xs font-black uppercase tracking-widest mt-4">Cancel Sync</button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
