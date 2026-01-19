@@ -14,6 +14,7 @@ import Settings from './components/Settings';
 import SyllabusTracker from './components/SyllabusTracker';
 import ScholarAI from './components/ScholarAI';
 import CommandPalette from './components/CommandPalette';
+import ConceptVault from './components/ConceptVault';
 import { AppSettings } from './types';
 
 const App: React.FC = () => {
@@ -63,6 +64,7 @@ const App: React.FC = () => {
               <Route path="/planner" element={<Planner settings={settings} />} />
               <Route path="/resources" element={<ResourceLibrary settings={settings} />} />
               <Route path="/flashcards" element={<Flashcards settings={settings} />} />
+              <Route path="/vault" element={<ConceptVault settings={settings} />} />
               <Route path="/notes" element={<Notes settings={settings} />} />
               <Route path="/quiz" element={<QuizGenerator settings={settings} />} />
               <Route path="/timer" element={<FocusTimer settings={settings} />} />

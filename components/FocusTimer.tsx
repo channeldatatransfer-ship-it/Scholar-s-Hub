@@ -1,18 +1,40 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Volume2, CloudRain, TreePine, Wind } from 'lucide-react';
-import { AppSettings } from '../types';
+
+import React, { useState, useEffect } from 'react';
+import { Play, Pause, RotateCcw, Volume2, CloudRain, TreePine, Wind, BookOpen } from 'lucide-react';
+import { AppSettings, Syllabus, FocusLog } from '../types';
 
 const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
   const [mode, setMode] = useState<'work' | 'short' | 'long'>('work');
   const [ambientSound, setAmbientSound] = useState<'none' | 'rain' | 'forest' | 'white'>('none');
+  const [subjects, setSubjects] = useState<Syllabus[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string>('General');
   
+  useEffect(() => {
+    const saved = localStorage.getItem('scholars_syllabuses_v2');
+    if (saved) setSubjects(JSON.parse(saved));
+  }, []);
+
   const toggleTimer = () => setIsActive(!isActive);
 
   const resetTimer = () => {
     setIsActive(false);
     setTimeLeft(mode === 'work' ? 25 * 60 : mode === 'short' ? 5 * 60 : 15 * 60);
+  };
+
+  const logSession = () => {
+    if (mode !== 'work') return;
+    const sessionMinutes = 25; // Simple log for completed session
+    const logs: FocusLog[] = JSON.parse(localStorage.getItem('scholars_focus_logs') || '[]');
+    const newLog: FocusLog = {
+      id: Date.now().toString(),
+      subjectId: selectedSubject,
+      minutes: sessionMinutes,
+      date: new Date().toISOString()
+    };
+    localStorage.setItem('scholars_focus_logs', JSON.stringify([...logs, newLog]));
+    window.dispatchEvent(new Event('focusUpdate'));
   };
 
   useEffect(() => {
@@ -23,7 +45,9 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       }, 1000);
     } else if (timeLeft === 0) {
       setIsActive(false);
+      logSession();
       new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play();
+      alert(`${mode === 'work' ? 'Focus' : 'Break'} session finished!`);
     }
     return () => clearInterval(interval);
   }, [isActive, timeLeft]);
@@ -49,6 +73,21 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   return (
     <div className="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[80vh] animate-in slide-in-from-bottom duration-500">
+      
+      {/* Subject Picker */}
+      <div className="mb-8 flex items-center gap-3 bg-white dark:bg-slate-800 px-6 py-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+        <BookOpen size={18} className="text-slate-400" />
+        <span className="text-xs font-black uppercase tracking-widest text-slate-400">Studying:</span>
+        <select 
+          className="bg-transparent border-none text-sm font-bold focus:ring-0 dark:text-white cursor-pointer"
+          value={selectedSubject}
+          onChange={(e) => setSelectedSubject(e.target.value)}
+        >
+          <option value="General">General Study</option>
+          {subjects.map(s => <option key={s.id} value={s.subject}>{s.subject}</option>)}
+        </select>
+      </div>
+
       <div className="mb-12 flex gap-2 p-1 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
         <button 
           onClick={() => setMode('work')}
@@ -101,10 +140,9 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       </div>
 
       <div className="flex items-center gap-6 mb-16">
-        {/* Fixed: removed --tw-text-opacity which is not a valid CSSProperties key in standard React types */}
         <button 
           onClick={resetTimer}
-          className="p-4 bg-white dark:bg-slate-800 text-slate-400 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:scale-105"
+          className="p-4 bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:scale-105"
           style={{ color: settings.primaryColor }}
         >
           <RotateCcw className="w-6 h-6" />
@@ -117,7 +155,7 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           {isActive ? <Pause className="w-10 h-10 fill-current" /> : <Play className="w-10 h-10 fill-current ml-2" />}
         </button>
         <button 
-          className="p-4 bg-white dark:bg-slate-800 text-slate-400 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:scale-105"
+          className="p-4 bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:scale-105"
           style={{ color: settings.primaryColor }}
         >
           <Volume2 className="w-6 h-6" />

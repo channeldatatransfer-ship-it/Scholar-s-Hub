@@ -4,12 +4,21 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Wand2, Trash
 import { AppSettings, CalendarEvent } from '../types';
 
 const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
+  // Helper to get local date string YYYY-MM-DD
+  const toLocalDateString = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   const [viewDate, setViewDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>(() => {
     const saved = localStorage.getItem('scholars_events');
+    const today = toLocalDateString(new Date());
     return saved ? JSON.parse(saved) : [
-      { id: '1', title: 'Calculus Final Prep', date: new Date().toISOString().split('T')[0], time: '10:00 AM', category: 'Math' },
-      { id: '2', title: 'Biology Mock Test', date: new Date().toISOString().split('T')[0], time: '2:00 PM', category: 'Science' },
+      { id: '1', title: 'Calculus Final Prep', date: today, time: '10:00 AM', category: 'Math' },
+      { id: '2', title: 'Biology Mock Test', date: today, time: '02:00 PM', category: 'Science' },
     ];
   });
 
@@ -34,7 +43,7 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       title: newEvent.title,
       category: newEvent.category,
       time: newEvent.time,
-      date: viewDate.toISOString().split('T')[0]
+      date: toLocalDateString(viewDate)
     };
     setEvents([...events, ev]);
     setShowAddEvent(false);
@@ -47,13 +56,13 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const calendarDays = [];
-  const totalDays = daysInMonth(month, year);
+  const totalDaysCount = daysInMonth(month, year);
   const startDay = firstDayOfMonth(month, year);
 
   for (let i = 0; i < startDay; i++) calendarDays.push(null);
-  for (let i = 1; i <= totalDays; i++) calendarDays.push(i);
+  for (let i = 1; i <= totalDaysCount; i++) calendarDays.push(i);
 
-  const selectedDateStr = viewDate.toISOString().split('T')[0];
+  const selectedDateStr = toLocalDateString(viewDate);
   const dayEvents = events.filter(e => e.date === selectedDateStr);
 
   return (
@@ -65,10 +74,11 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         </div>
         <div className="flex gap-3">
            <button 
+            onClick={() => alert("AI is analyzing your empty slots... (Simulated)")}
             className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-8 py-4 rounded-[2rem] font-bold flex items-center gap-2 hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-800"
             style={{ color: settings.primaryColor, backgroundColor: `${settings.primaryColor}1A`, borderColor: `${settings.primaryColor}33` }}
            >
-             <Wand2 className="w-5 h-5" /> AI Schedule
+             <Wand2 className="w-5 h-5" /> AI Auto-Schedule
            </button>
            <button 
             onClick={() => setShowAddEvent(true)}
@@ -85,8 +95,8 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           <div className="flex items-center justify-between mb-10">
             <h2 className="text-3xl font-black dark:text-white">{monthName} {year}</h2>
             <div className="flex gap-4">
-              <button onClick={() => setViewDate(new Date(year, month - 1))} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors"><ChevronLeft /></button>
-              <button onClick={() => setViewDate(new Date(year, month + 1))} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors"><ChevronRight /></button>
+              <button onClick={() => setViewDate(new Date(year, month - 1, 1))} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors"><ChevronLeft /></button>
+              <button onClick={() => setViewDate(new Date(year, month + 1, 1))} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors"><ChevronRight /></button>
             </div>
           </div>
           
@@ -100,14 +110,15 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             {calendarDays.map((day, idx) => {
               if (day === null) return <div key={`empty-${idx}`} />;
               
-              const currentDayStr = new Date(year, month, day).toISOString().split('T')[0];
+              const dateObj = new Date(year, month, day);
+              const currentDayStr = toLocalDateString(dateObj);
               const isSelected = selectedDateStr === currentDayStr;
               const hasEvents = events.some(e => e.date === currentDayStr);
               
               return (
                 <div 
                   key={day} 
-                  onClick={() => setViewDate(new Date(year, month, day))}
+                  onClick={() => setViewDate(dateObj)}
                   className={`
                     aspect-square p-4 rounded-3xl border flex flex-col items-end transition-all cursor-pointer group relative
                     ${isSelected ? 'shadow-2xl ring-4 ring-indigo-500/10' : 'border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'}
@@ -152,7 +163,7 @@ const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                 ))}
                 {dayEvents.length === 0 && (
                   <div className="py-20 text-center flex flex-col items-center justify-center space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
                       <CalendarIcon size={24} className="text-slate-300" />
                     </div>
                     <p className="text-sm font-bold text-slate-400 max-w-[150px]">No events for this date. Time to rest?</p>

@@ -8,13 +8,14 @@ import {
   Plus,
   Zap,
   TrendingUp,
-  PieChart as PieIcon
+  PieChart as PieIcon,
+  BarChart3
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell 
+  PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
-import { Syllabus, AppSettings } from '../types';
+import { Syllabus, AppSettings, FocusLog } from '../types';
 
 const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [tasks, setTasks] = useState([
@@ -24,11 +25,28 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   ]);
 
   const [syllabuses, setSyllabuses] = useState<Syllabus[]>([]);
+  const [focusLogs, setFocusLogs] = useState<FocusLog[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('scholars_syllabuses_v2');
-    if (saved) setSyllabuses(JSON.parse(saved));
+    const savedSyllabus = localStorage.getItem('scholars_syllabuses_v2');
+    if (savedSyllabus) setSyllabuses(JSON.parse(savedSyllabus));
+    
+    const savedLogs = localStorage.getItem('scholars_focus_logs');
+    if (savedLogs) setFocusLogs(JSON.parse(savedLogs));
   }, []);
+
+  const performanceData = useMemo(() => {
+    const topics = syllabuses.flatMap(s => s.chapters.flatMap(c => c.topics)).filter(t => t.score !== undefined);
+    return topics.map((t, i) => ({ name: `Test ${i+1}`, score: t.score }));
+  }, [syllabuses]);
+
+  const focusData = useMemo(() => {
+    const distribution: Record<string, number> = {};
+    focusLogs.forEach(log => {
+      distribution[log.subjectId] = (distribution[log.subjectId] || 0) + log.minutes;
+    });
+    return Object.entries(distribution).map(([name, value]) => ({ name, value }));
+  }, [focusLogs]);
 
   const getProgress = (syllabus: Syllabus) => {
     const allTopics = syllabus.chapters.flatMap(c => c.topics);
@@ -37,25 +55,13 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     return Math.round((completed / allTopics.length) * 100);
   };
 
-  const allTopicsInApp = syllabuses.flatMap(s => s.chapters.flatMap(c => c.topics));
-  const totalTopics = allTopicsInApp.length;
-  const completedTopics = allTopicsInApp.filter(t => t.completed).length;
-  const overallProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
-
-  const distributionData = useMemo(() => {
-    return syllabuses.map(s => ({
-      name: s.subject,
-      value: s.chapters.flatMap(c => c.topics).length
-    })).filter(d => d.value > 0);
-  }, [syllabuses]);
-
   const COLORS = [settings.primaryColor, '#10b981', '#f59e0b', '#e11d48', '#8b5cf6', '#0ea5e9'];
 
   const stats = [
     { label: 'Study Streak', value: '12 Days', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-    { label: 'Time Studied', value: '42.5 hrs', icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-    { label: 'Quiz Score', value: '88%', icon: Trophy, color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
-    { label: 'Mastery', value: `${overallProgress}%`, icon: CheckCircle2, color: 'dynamic-primary-text', bg: 'bg-slate-50 dark:bg-slate-800/50' },
+    { label: 'Total Focus', value: `${Math.round(focusLogs.reduce((a,b) => a + b.minutes, 0) / 60)} hrs`, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+    { label: 'Avg Score', value: performanceData.length ? `${Math.round(performanceData.reduce((a,b) => a + (b.score || 0), 0) / performanceData.length)}%` : 'N/A', icon: Trophy, color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
+    { label: 'Mastery', value: `${syllabuses.length ? Math.round(syllabuses.reduce((a,b) => a + getProgress(b), 0) / syllabuses.length) : 0}%`, icon: CheckCircle2, color: 'dynamic-primary-text', bg: 'bg-slate-50 dark:bg-slate-800/50' },
   ];
 
   return (
@@ -63,7 +69,7 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <h1 className="text-4xl font-black dark:text-white tracking-tight">Welcome back, Scholar! 👋</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-lg">Your momentum is strong. You've mastered 4 new topics today.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-lg">Your momentum is strong. You've focused for {Math.round(focusLogs.reduce((a,b) => a + b.minutes, 0))} minutes total.</p>
         </div>
         <button 
           className="flex items-center gap-3 text-white px-8 py-4 rounded-[2rem] shadow-2xl transition-all hover:scale-105 active:scale-95 dynamic-primary-glow font-bold"
@@ -92,98 +98,61 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
+          {/* Performance Trend Chart */}
+          <section className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800">
+             <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-yellow-500">
+                  <BarChart3 />
+                </div>
+                <h2 className="text-2xl font-black dark:text-white">Performance Analytics</h2>
+             </div>
+             <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                   <LineChart data={performanceData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={settings.darkMode ? "#1e293b" : "#f1f5f9"} />
+                      <XAxis dataKey="name" hide />
+                      <YAxis domain={[0, 100]} hide />
+                      <Tooltip 
+                        contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', backgroundColor: settings.darkMode ? '#0f172a' : '#fff'}}
+                      />
+                      <Line type="monotone" dataKey="score" stroke={settings.primaryColor} strokeWidth={4} dot={{ r: 6, fill: settings.primaryColor, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+                   </LineChart>
+                </ResponsiveContainer>
+             </div>
+          </section>
+
           <section className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                  <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800">
                     <TrendingUp className="text-indigo-600" style={{ color: settings.primaryColor }} />
                  </div>
-                 <h2 className="text-2xl font-black dark:text-white">Study Activity</h2>
+                 <h2 className="text-2xl font-black dark:text-white">Time Distribution</h2>
               </div>
-              <select className="bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-xs font-bold p-3 focus:ring-0 dark:text-white">
-                <option>Past 7 Days</option>
-                <option>Past 30 Days</option>
-              </select>
             </div>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={[
-                  { day: 'Mon', h: 4 }, { day: 'Tue', h: 6 }, { day: 'Wed', h: 5 }, 
-                  { day: 'Thu', h: 8 }, { day: 'Fri', h: 3 }, { day: 'Sat', h: 7 }, { day: 'Sun', h: 9 }
-                ]}>
-                  <defs>
-                    <linearGradient id="colorH" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={settings.primaryColor} stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor={settings.primaryColor} stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={settings.darkMode ? "#1e293b" : "#f1f5f9"} />
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 'bold'}} />
-                  <YAxis hide />
-                  <Tooltip 
-                    contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', backgroundColor: settings.darkMode ? '#0f172a' : '#fff'}}
-                  />
-                  <Area type="monotone" dataKey="h" stroke={settings.primaryColor} strokeWidth={4} fillOpacity={1} fill="url(#colorH)" />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="h-64 flex items-center justify-center">
+              {focusData.length ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={focusData}
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {focusData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center text-slate-400 font-bold">Start a focus session to see distribution.</div>
+              )}
             </div>
           </section>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <section className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800">
-               <div className="flex items-center gap-3 mb-8">
-                  <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800">
-                    <PieIcon className="text-emerald-500" />
-                  </div>
-                  <h2 className="text-xl font-black dark:text-white">Syllabus Health</h2>
-               </div>
-               <div className="h-64">
-                 <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={distributionData.length ? distributionData : [{name: 'Empty', value: 1}]}
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                        animationBegin={300}
-                        animationDuration={1500}
-                      >
-                        {distributionData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                 </ResponsiveContainer>
-               </div>
-               <div className="grid grid-cols-2 gap-2 mt-4">
-                  {distributionData.slice(0, 4).map((d, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter truncate">{d.name}</span>
-                    </div>
-                  ))}
-               </div>
-            </section>
-
-            <section className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800">
-              <h2 className="text-xl font-black dark:text-white mb-6">Course Status</h2>
-              <div className="space-y-5">
-                {syllabuses.slice(0, 3).map(s => (
-                  <div key={s.id} className="space-y-2">
-                    <div className="flex justify-between text-xs font-bold">
-                       <span className="dark:text-slate-300">{s.subject}</span>
-                       <span className="text-slate-400">{getProgress(s)}%</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                       <div className="h-full transition-all duration-1000" style={{ width: `${getProgress(s)}%`, backgroundColor: settings.primaryColor }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
         </div>
 
         <div className="space-y-8">

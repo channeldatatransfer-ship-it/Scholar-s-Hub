@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
-  ClipboardCheck
+  ClipboardCheck,
+  Zap
 } from 'lucide-react';
 import { Syllabus, AppSettings } from '../types';
 
@@ -24,11 +25,9 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   useEffect(() => {
     const calculateProgress = () => {
-      // Use scholars_syllabuses_v2 to match SyllabusTracker
       const saved = localStorage.getItem('scholars_syllabuses_v2');
       if (saved) {
         const syllabuses: Syllabus[] = JSON.parse(saved);
-        // Syllabus has chapters which have topics. Extract all topics.
         const allTopics = syllabuses.flatMap(s => s.chapters.flatMap(c => c.topics));
         if (allTopics.length === 0) {
           setProgress(0);
@@ -54,6 +53,7 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     { name: 'Planner', path: '/planner', icon: Calendar },
     { name: 'Library', path: '/resources', icon: Library },
     { name: 'Flashcards', path: '/flashcards', icon: Layers },
+    { name: 'Concept Vault', path: '/vault', icon: Zap },
     { name: 'Notes', path: '/notes', icon: FileText },
     { name: 'Quiz AI', path: '/quiz', icon: BrainCircuit },
     { name: 'Focus', path: '/timer', icon: Timer },

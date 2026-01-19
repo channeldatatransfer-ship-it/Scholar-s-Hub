@@ -10,6 +10,8 @@ export interface Topic {
   id: string;
   title: string;
   completed: boolean;
+  score?: number; // 0-100 self-assessment or mock score
+  lastTested?: string;
 }
 
 export interface Chapter {
@@ -23,6 +25,21 @@ export interface Syllabus {
   subject: string;
   chapters: Chapter[];
   color: string;
+}
+
+export interface Concept {
+  id: string;
+  title: string;
+  content: string;
+  category: 'formula' | 'definition' | 'theorem' | 'other';
+  subjectId: string;
+}
+
+export interface FocusLog {
+  id: string;
+  subjectId: string;
+  minutes: number;
+  date: string;
 }
 
 export interface Flashcard {
@@ -66,12 +83,6 @@ export interface CalendarEvent {
   date: string; // ISO format
   category: string;
   time: string;
-}
-
-export interface UserStats {
-  streak: number;
-  lastActive: string;
-  focusMinutes: number;
 }
 
 export interface AppSettings {
