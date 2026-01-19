@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Folder, 
   File as FileIcon, 
@@ -8,15 +9,13 @@ import {
   Grid, 
   List, 
   Cloud, 
-  ExternalLink, 
-  MoreVertical,
   Download,
   Eye,
   RefreshCw,
   X,
   FileText,
-  // Fixed: Added Trash2 to the list of imports from lucide-react
-  Trash2
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { AppSettings } from '../types';
 
@@ -34,6 +33,7 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [localFiles, setLocalFiles] = useState<FileItem[]>(() => {
@@ -52,7 +52,10 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPreviewUrl(null);
+      if (event.key === 'Escape') {
+        setPreviewUrl(null);
+        setFileToDelete(null);
+      }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -88,10 +91,10 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     }
   };
 
-  const deleteFile = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (confirm("Remove this file from your local library?")) {
-      setLocalFiles(prev => prev.filter(f => f.id !== id));
+  const confirmDelete = () => {
+    if (fileToDelete) {
+      setLocalFiles(prev => prev.filter(f => f.id !== fileToDelete.id));
+      setFileToDelete(null);
     }
   };
 
@@ -221,7 +224,7 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black">{file.size} • {file.modified}</p>
                     {activeTab === 'local' && (
                       <button 
-                        onClick={(e) => deleteFile(e, file.id)}
+                        onClick={(e) => { e.stopPropagation(); setFileToDelete(file); }}
                         className="absolute top-4 right-4 p-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-rose-500"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -274,7 +277,10 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                                 <Download className="w-4 h-4" />
                              </button>
                              {activeTab === 'local' && (
-                               <button onClick={(e) => deleteFile(e, file.id)} className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm text-rose-400 hover:text-rose-600 transition-all">
+                               <button 
+                                onClick={(e) => { e.stopPropagation(); setFileToDelete(file); }}
+                                className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm text-rose-400 hover:text-rose-600 transition-all"
+                               >
                                  <Trash2 className="w-4 h-4" />
                                </button>
                              )}
@@ -289,27 +295,86 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         </div>
       </div>
 
-      {previewUrl && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 md:p-10">
-           <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setPreviewUrl(null)} />
-           <div className="relative bg-white dark:bg-slate-900 w-full h-full rounded-[3.5rem] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in duration-300">
-              <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
-                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl" style={{ color: settings.primaryColor }}>
-                       <FileText className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-black text-xl dark:text-white">Document View</h3>
-                 </div>
-                 <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-slate-500 hover:text-rose-500 transition-all">
-                   Close <X className="w-5 h-5" />
-                 </button>
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {fileToDelete && (
+          <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" 
+              onClick={() => setFileToDelete(null)} 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-10 shadow-2xl border border-slate-100 dark:border-slate-800"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/30 rounded-full flex items-center justify-center mb-6">
+                  <AlertTriangle className="w-10 h-10 text-rose-500" />
+                </div>
+                <h3 className="text-2xl font-black dark:text-white mb-2">Delete Resource?</h3>
+                <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+                  Are you sure you want to remove <strong className="text-slate-900 dark:text-white">"{fileToDelete.name}"</strong>? This action cannot be undone.
+                </p>
+                <div className="flex gap-4 w-full">
+                  <button 
+                    onClick={() => setFileToDelete(null)}
+                    className="flex-1 py-4 font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={confirmDelete}
+                    className="flex-1 py-4 font-bold text-white bg-rose-500 rounded-2xl shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95"
+                  >
+                    Delete File
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 bg-slate-50 dark:bg-slate-950">
-                <iframe src={previewUrl} className="w-full h-full border-none" title="PDF Preview" />
-              </div>
-           </div>
-        </div>
-      )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Preview Modal */}
+      <AnimatePresence>
+        {previewUrl && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 md:p-10">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" 
+              onClick={() => setPreviewUrl(null)} 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white dark:bg-slate-900 w-full h-full rounded-[3.5rem] overflow-hidden shadow-2xl flex flex-col"
+            >
+                <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                      <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl" style={{ color: settings.primaryColor }}>
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-black text-xl dark:text-white">Document View</h3>
+                  </div>
+                  <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-slate-500 hover:text-rose-500 transition-all">
+                    Close <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex-1 bg-slate-50 dark:bg-slate-950">
+                  <iframe src={previewUrl} className="w-full h-full border-none" title="PDF Preview" />
+                </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
