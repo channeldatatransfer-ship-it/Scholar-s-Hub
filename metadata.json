@@ -1,0 +1,7 @@
+{
+  "name": "Scholar's Hub",
+  "description": "An aesthetics-first student exam preparation platform with AI-powered study tools, spaced repetition flashcards, focus timers, and a smart planner.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
