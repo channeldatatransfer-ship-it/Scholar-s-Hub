@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -23,6 +22,8 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : {
       darkMode: false,
       primaryColor: '#4338ca',
+      examLevel: 'HSC',
+      language: 'EN'
     };
   });
 
@@ -35,6 +36,10 @@ const App: React.FC = () => {
     root.style.setProperty('--primary-color', settings.primaryColor);
     root.style.setProperty('--primary-glow', `${settings.primaryColor}4D`); 
     
+    // Set dynamic font
+    const font = settings.language === 'BN' ? "'Hind Siliguri', sans-serif" : "'Inter', sans-serif";
+    root.style.setProperty('--dynamic-font', font);
+    
     if (settings.darkMode) {
       root.classList.add('dark');
       document.body.className = 'bg-slate-950 text-white min-h-screen';
@@ -46,7 +51,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex min-h-screen selection:bg-indigo-500/20">
-      <CommandPalette />
+      <CommandPalette settings={settings} />
       <Sidebar settings={settings} />
       <main className="flex-1 p-4 lg:p-8 overflow-y-auto h-screen relative scroll-smooth">
         <AnimatePresence mode="wait">

@@ -48,16 +48,16 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   }, []);
 
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Syllabus', path: '/syllabus', icon: ClipboardCheck },
-    { name: 'Planner', path: '/planner', icon: Calendar },
-    { name: 'Library', path: '/resources', icon: Library },
-    { name: 'Flashcards', path: '/flashcards', icon: Layers },
-    { name: 'Concept Vault', path: '/vault', icon: Zap },
-    { name: 'Notes', path: '/notes', icon: FileText },
-    { name: 'Quiz AI', path: '/quiz', icon: BrainCircuit },
-    { name: 'Focus', path: '/timer', icon: Timer },
-    { name: 'Settings', path: '/settings', icon: SettingsIcon },
+    { name: settings.language === 'BN' ? 'ড্যাশবোর্ড' : 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: settings.language === 'BN' ? 'সিলেবাস' : 'Syllabus', path: '/syllabus', icon: ClipboardCheck },
+    { name: settings.language === 'BN' ? 'প্ল্যানার' : 'Planner', path: '/planner', icon: Calendar },
+    { name: settings.language === 'BN' ? 'লাইব্রেরি' : 'Library', path: '/resources', icon: Library },
+    { name: settings.language === 'BN' ? 'ফ্ল্যাশকার্ড' : 'Flashcards', path: '/flashcards', icon: Layers },
+    { name: settings.language === 'BN' ? 'ভল্ট' : 'Vault', path: '/vault', icon: Zap },
+    { name: settings.language === 'BN' ? 'নোটস' : 'Notes', path: '/notes', icon: FileText },
+    { name: settings.language === 'BN' ? 'কুইজ' : 'Quiz AI', path: '/quiz', icon: BrainCircuit },
+    { name: settings.language === 'BN' ? 'টাইমার' : 'Focus', path: '/timer', icon: Timer },
+    { name: settings.language === 'BN' ? 'সেটিংস' : 'Settings', path: '/settings', icon: SettingsIcon },
   ];
 
   return (
@@ -101,7 +101,7 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               style={isActive && !settings.darkMode ? { color: settings.primaryColor } : {}}
             >
               <Icon className={`w-6 h-6 shrink-0 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-              {!collapsed && <span className="font-medium">{item.name}</span>}
+              {!collapsed && <span className="font-medium whitespace-nowrap">{item.name}</span>}
             </Link>
           );
         })}

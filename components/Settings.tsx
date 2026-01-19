@@ -1,9 +1,7 @@
-
 import React from 'react';
-// Added motion import from framer-motion to fix 'Cannot find name motion' error.
 import { motion } from 'framer-motion';
-import { AppSettings } from '../types';
-import { Moon, Sun, Palette, Database, RefreshCw, Trash2, Check, Cloud, Key } from 'lucide-react';
+import { AppSettings, ExamLevel } from '../types';
+import { Moon, Sun, Palette, Database, RefreshCw, Trash2, Check, Cloud, Key, BookOpen, Globe } from 'lucide-react';
 
 interface SettingsProps {
   settings: AppSettings;
@@ -20,8 +18,18 @@ const THEME_PRESETS = [
 ];
 
 const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
+  const isBN = settings.language === 'BN';
+  
+  const EXAM_LEVELS: { id: ExamLevel; label: string }[] = [
+    { id: 'SSC', label: isBN ? 'এসএসসি (১০ম শ্রেণি)' : 'SSC (Class 10)' },
+    { id: 'HSC', label: isBN ? 'এইচএসসি (১২তম শ্রেণি)' : 'HSC (Class 12)' },
+    { id: 'Engineering', label: isBN ? 'প্রকৌশল ভর্তি (BUET/CKRUET)' : 'Engineering Admission (BUET/CKRUET)' },
+    { id: 'Medical', label: isBN ? 'মেডিকেল ভর্তি' : 'Medical Admission' },
+    { id: 'General', label: isBN ? 'অন্যান্য/সাধারণ' : 'Other/General' },
+  ];
+
   const clearData = () => {
-    if (confirm("Are you sure you want to clear all data? This cannot be undone.")) {
+    if (confirm(isBN ? "আপনি কি নিশ্চিত যে আপনি সমস্ত ডেটা মুছে ফেলতে চান? এটি পুনরুদ্ধার করা যাবে না।" : "Are you sure you want to clear all data? This cannot be undone.")) {
       localStorage.clear();
       window.location.reload();
     }
@@ -32,24 +40,79 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in duration-500">
+    <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in duration-500 pb-20">
       <header>
-        <h1 className="text-4xl font-black dark:text-white tracking-tight">Settings</h1>
-        <p className="text-slate-500 mt-2">Personalize your Scholar Hub experience.</p>
+        <h1 className="text-4xl font-black dark:text-white tracking-tight">{isBN ? 'সেটিংস' : 'Settings'}</h1>
+        <p className="text-slate-500 mt-2">{isBN ? 'বাংলাদেশে আপনার পড়াশোনার জন্য স্কলার হাবকে পার্সোনালাইজ করুন।' : 'Personalize Scholar Hub for your studies in Bangladesh.'}</p>
       </header>
 
       <div className="space-y-8">
-        {/* Appearance */}
         <section className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
           <h2 className="text-xl font-black mb-8 flex items-center gap-3 dark:text-white">
-            <Palette className="w-6 h-6" style={{ color: settings.primaryColor }} /> Appearance & Interface
+            <BookOpen className="w-6 h-6" style={{ color: settings.primaryColor }} /> {isBN ? 'একাডেমিক প্রোফাইল' : 'Academic Profile'}
+          </h2>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">{isBN ? 'বর্তমান পরীক্ষার লক্ষ্য' : 'Current Exam Focus'}</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {EXAM_LEVELS.map((level) => (
+                  <button
+                    key={level.id}
+                    onClick={() => handleUpdate({ examLevel: level.id })}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                      settings.examLevel === level.id 
+                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' 
+                        : 'border-slate-100 dark:border-slate-800 hover:border-indigo-200'
+                    }`}
+                    style={settings.examLevel === level.id ? { borderColor: settings.primaryColor, backgroundColor: `${settings.primaryColor}1A` } : {}}
+                  >
+                    <p className={`font-bold ${settings.examLevel === level.id ? 'text-indigo-700 dark:text-white' : 'text-slate-500'}`}
+                       style={settings.examLevel === level.id ? { color: settings.primaryColor } : {}}>
+                      {level.label}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-4 flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl">
+              <div>
+                <p className="font-bold dark:text-white flex items-center gap-2">
+                  <Globe size={18} /> {isBN ? 'অ্যাপের ভাষা' : 'UI Language'}
+                </p>
+                <p className="text-sm text-slate-500">{isBN ? 'ইংরেজি এবং বাংলা ইন্টারফেসের মধ্যে বেছে নিন।' : 'Choose between English and Bengali interface.'}</p>
+              </div>
+              <div className="flex bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border dark:border-slate-700">
+                <button 
+                  onClick={() => handleUpdate({ language: 'EN' })}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${settings.language === 'EN' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                  style={settings.language === 'EN' ? { backgroundColor: settings.primaryColor } : {}}
+                >
+                  English
+                </button>
+                <button 
+                  onClick={() => handleUpdate({ language: 'BN' })}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${settings.language === 'BN' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                  style={settings.language === 'BN' ? { backgroundColor: settings.primaryColor } : {}}
+                >
+                  বাংলা
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+          <h2 className="text-xl font-black mb-8 flex items-center gap-3 dark:text-white">
+            <Palette className="w-6 h-6" style={{ color: settings.primaryColor }} /> {isBN ? 'চেহারা' : 'Appearance'}
           </h2>
           
           <div className="space-y-10">
-            <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl">
               <div>
-                <p className="font-bold text-lg dark:text-white">Dark Mode</p>
-                <p className="text-sm text-slate-500">Easier on the eyes for late-night sessions.</p>
+                <p className="font-bold text-lg dark:text-white">{isBN ? 'ডার্ক মোড' : 'Dark Mode'}</p>
+                <p className="text-sm text-slate-500">{isBN ? 'রাতের পড়াশোনার জন্য সেরা।' : 'Best for night-time study sessions.'}</p>
               </div>
               <button 
                 onClick={() => handleUpdate({ darkMode: !settings.darkMode })}
@@ -63,7 +126,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
             </div>
 
             <div>
-              <p className="font-bold dark:text-white mb-6">Accent Color</p>
+              <p className="font-bold dark:text-white mb-6">{isBN ? 'অ্যাকসেন্ট কালার' : 'Accent Color'}</p>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-6">
                 {THEME_PRESETS.map((preset) => (
                   <button
@@ -89,62 +152,21 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
           </div>
         </section>
 
-        {/* Cloud Integration */}
         <section className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
           <h2 className="text-xl font-black mb-8 flex items-center gap-3 dark:text-white">
-            <Cloud className="w-6 h-6" style={{ color: settings.primaryColor }} /> Cloud Integrations
-          </h2>
-          
-          <div className="space-y-6">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Google Drive Client ID</label>
-                   <div className="relative">
-                      <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                      <input 
-                        type="password"
-                        placeholder="Paste Client ID..."
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 py-4 font-medium dark:text-white focus:ring-4 focus:ring-indigo-500/10"
-                        value={settings.gdriveClientId || ''}
-                        onChange={(e) => handleUpdate({ gdriveClientId: e.target.value })}
-                      />
-                   </div>
-                </div>
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Google API Key</label>
-                   <div className="relative">
-                      <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                      <input 
-                        type="password"
-                        placeholder="Paste API Key..."
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 py-4 font-medium dark:text-white focus:ring-4 focus:ring-indigo-500/10"
-                        value={settings.gdriveKey || ''}
-                        onChange={(e) => handleUpdate({ gdriveKey: e.target.value })}
-                      />
-                   </div>
-                </div>
-             </div>
-             <p className="text-xs text-slate-400 italic">These keys are stored locally and used to sync your resources with Google Drive.</p>
-          </div>
-        </section>
-
-        {/* Data Management */}
-        <section className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h2 className="text-xl font-black mb-8 flex items-center gap-3 dark:text-white">
-            <Database className="w-6 h-6" style={{ color: settings.primaryColor }} /> Data & Privacy
+            <Database className="w-6 h-6" style={{ color: settings.primaryColor }} /> {isBN ? 'ডেটা কন্ট্রোল' : 'Data Control'}
           </h2>
           <div className="flex flex-col md:flex-row gap-4">
             <button className="flex-1 flex items-center justify-center gap-3 p-5 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-[2rem] hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-95">
-              <RefreshCw className="w-5 h-5" /> Export All Data (JSON)
+              <RefreshCw className="w-5 h-5" /> {isBN ? 'অগ্রগতি এক্সপোর্ট করুন' : 'Export Progress'}
             </button>
             <button 
               onClick={clearData}
               className="flex-1 flex items-center justify-center gap-3 p-5 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 font-bold rounded-[2rem] hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-all active:scale-95"
             >
-              <Trash2 className="w-5 h-5" /> Factory Reset App
+              <Trash2 className="w-5 h-5" /> {isBN ? 'সমস্ত ডেটা রিসেট করুন' : 'Reset All Data'}
             </button>
           </div>
-          <p className="text-center mt-6 text-slate-400 text-xs font-bold uppercase tracking-widest">Version 1.0.4 - Scholar Hub Pro</p>
         </section>
       </div>
     </div>

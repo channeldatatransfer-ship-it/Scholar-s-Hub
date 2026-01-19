@@ -1,22 +1,26 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, LayoutDashboard, Layers, FileText, ClipboardCheck, Timer, Settings, Calendar } from 'lucide-react';
+import { Search, LayoutDashboard, Layers, FileText, ClipboardCheck, Timer, Settings, Calendar, Zap, Library, BrainCircuit } from 'lucide-react';
+import { AppSettings } from '../types';
 
-const CommandPalette: React.FC = () => {
+const CommandPalette: React.FC<{ settings: AppSettings }> = ({ settings }) => {
+  const isBN = settings.language === 'BN';
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
   const commands = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Syllabus Tracker', path: '/syllabus', icon: ClipboardCheck },
-    { name: 'Study Planner', path: '/planner', icon: Calendar },
-    { name: 'Flashcards', path: '/flashcards', icon: Layers },
-    { name: 'Notes', path: '/notes', icon: FileText },
-    { name: 'Focus Timer', path: '/timer', icon: Timer },
-    { name: 'Settings', path: '/settings', icon: Settings },
+    { name: isBN ? 'ড্যাশবোর্ড' : 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: isBN ? 'সিলেবাস ট্র্যাকার' : 'Syllabus Tracker', path: '/syllabus', icon: ClipboardCheck },
+    { name: isBN ? 'স্টাডি প্ল্যানার' : 'Study Planner', path: '/planner', icon: Calendar },
+    { name: isBN ? 'লাইব্রেরি' : 'Library', path: '/resources', icon: Library },
+    { name: isBN ? 'ফ্ল্যাশকার্ড' : 'Flashcards', path: '/flashcards', icon: Layers },
+    { name: isBN ? 'কনসেপ্ট ভল্ট' : 'Vault', path: '/vault', icon: Zap },
+    { name: isBN ? 'নোটস' : 'Notes', path: '/notes', icon: FileText },
+    { name: isBN ? 'কুইজ এআই' : 'Quiz AI', path: '/quiz', icon: BrainCircuit },
+    { name: isBN ? 'ফোকাস টাইমার' : 'Focus Timer', path: '/timer', icon: Timer },
+    { name: isBN ? 'সেটিংস' : 'Settings', path: '/settings', icon: Settings },
   ];
 
   useEffect(() => {
@@ -60,7 +64,7 @@ const CommandPalette: React.FC = () => {
               <Search className="text-slate-400 mr-4" />
               <input
                 autoFocus
-                placeholder="Where to, Scholar?"
+                placeholder={isBN ? "কোথায় যাবেন, স্কলার?" : "Where to, Scholar?"}
                 className="flex-1 bg-transparent border-none focus:ring-0 text-xl font-bold dark:text-white"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -81,7 +85,7 @@ const CommandPalette: React.FC = () => {
                 </button>
               ))}
               {filtered.length === 0 && (
-                <div className="p-8 text-center text-slate-400 font-bold">No results for "{search}"</div>
+                <div className="p-8 text-center text-slate-400 font-bold">{isBN ? `"${search}" এর জন্য কোনো ফলাফল নেই` : `No results for "${search}"`}</div>
               )}
             </div>
           </motion.div>

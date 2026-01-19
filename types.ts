@@ -1,4 +1,6 @@
 
+export type ExamLevel = 'SSC' | 'HSC' | 'Engineering' | 'Medical' | 'General';
+
 export interface Task {
   id: string;
   title: string;
@@ -10,7 +12,7 @@ export interface Topic {
   id: string;
   title: string;
   completed: boolean;
-  score?: number; // 0-100 self-assessment or mock score
+  score?: number;
   lastTested?: string;
 }
 
@@ -25,6 +27,15 @@ export interface Syllabus {
   subject: string;
   chapters: Chapter[];
   color: string;
+}
+
+export interface AppSettings {
+  darkMode: boolean;
+  primaryColor: string;
+  gdriveKey?: string;
+  gdriveClientId?: string;
+  examLevel: ExamLevel;
+  language: 'EN' | 'BN';
 }
 
 export interface Concept {
@@ -80,14 +91,7 @@ export interface Resource {
 export interface CalendarEvent {
   id: string;
   title: string;
-  date: string; // ISO format
+  date: string;
   category: string;
   time: string;
-}
-
-export interface AppSettings {
-  darkMode: boolean;
-  primaryColor: string;
-  gdriveKey?: string;
-  gdriveClientId?: string;
 }
