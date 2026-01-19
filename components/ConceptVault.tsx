@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Plus, Search, Trash2, Brain, Filter, Hash, Book, Lightbulb, X } from 'lucide-react';
+import { 
+  Zap, Plus, Search, Trash2, Brain, Filter, Hash, Book, 
+  Lightbulb, X, Image as ImageIcon, Sparkles, RefreshCw, Download
+} from 'lucide-react';
 import { AppSettings, Concept, Syllabus } from '../types';
-import { simplifyContent } from '../services/geminiService';
+import { simplifyContent, generateConceptImage } from '../services/geminiService';
 
 const ConceptVault: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [concepts, setConcepts] = useState<Concept[]>(() => {
@@ -19,6 +22,7 @@ const ConceptVault: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [isAdding, setIsAdding] = useState(false);
   const [isExplaining, setIsExplaining] = useState<string | null>(null);
+  const [isIllustrating, setIsIllustrating] = useState<string | null>(null);
   const [newConcept, setNewConcept] = useState<Partial<Concept>>({ category: 'formula', subjectId: 'General' });
 
   useEffect(() => {
@@ -58,6 +62,24 @@ const ConceptVault: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     }
   };
 
+  const handleAiIllustrate = async (concept: Concept) => {
+    setIsIllustrating(concept.id);
+    try {
+      const imageUrl = await generateConceptImage(concept.title, concept.content);
+      if (imageUrl) {
+        const updated = concepts.map(c => 
+          c.id === concept.id ? { ...c, imageUrl } : c
+        );
+        setConcepts(updated);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate illustration.");
+    } finally {
+      setIsIllustrating(null);
+    }
+  };
+
   const filtered = concepts.filter(c => 
     (c.title.toLowerCase().includes(searchTerm.toLowerCase()) || c.content.toLowerCase().includes(searchTerm.toLowerCase())) &&
     (filterCategory === 'all' || c.category === filterCategory)
@@ -79,11 +101,11 @@ const ConceptVault: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           <h1 className="text-4xl font-black dark:text-white tracking-tight flex items-center gap-3">
              <Zap className="w-10 h-10" style={{ color: settings.primaryColor }} /> Concept Vault
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-lg">Your persistent knowledge base for core principles.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-lg">Your knowledge base for core principles.</p>
         </div>
         <button 
           onClick={() => setIsAdding(true)}
-          className="flex items-center gap-3 text-white px-8 py-4 rounded-[2rem] shadow-2xl transition-all hover:scale-105 active:scale-95 dynamic-primary-glow font-bold"
+          className="flex items-center gap-3 text-white px-8 py-4 rounded-[2rem] shadow-2xl transition-all hover:scale-105 active:scale-95 font-bold"
           style={{ backgroundColor: settings.primaryColor }}
         >
           <Plus className="w-5 h-5" />
@@ -125,44 +147,74 @@ const ConceptVault: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group hover:shadow-2xl transition-all relative overflow-hidden"
+              className="bg-white dark:bg-slate-900 p-0 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group hover:shadow-2xl transition-all relative overflow-hidden flex flex-col"
             >
-              <div className="flex justify-between items-start mb-6">
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-indigo-600" style={{ color: settings.primaryColor }}>
-                  {getIcon(concept.category)}
+              {concept.imageUrl && (
+                <div className="relative w-full aspect-video overflow-hidden group/image">
+                  <img src={concept.imageUrl} alt={concept.title} className="w-full h-full object-cover transition-transform duration-500 group-hover/image:scale-110" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                     <button onClick={() => handleAiIllustrate(concept)} className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40"><RefreshCw size={20} /></button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleAiExplain(concept)}
-                    disabled={isExplaining === concept.id}
-                    className={`p-2 rounded-xl text-slate-300 hover:text-indigo-500 transition-colors ${isExplaining === concept.id ? 'animate-pulse' : ''}`}
-                  >
-                    <Brain size={18} />
-                  </button>
-                  <button 
-                    onClick={() => setConcepts(concepts.filter(c => c.id !== concept.id))}
-                    className="p-2 rounded-xl text-slate-300 hover:text-rose-500 transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+              )}
+              
+              <div className="p-8 space-y-4 flex-1">
+                <div className="flex justify-between items-start">
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-indigo-600" style={{ color: settings.primaryColor }}>
+                    {getIcon(concept.category)}
+                  </div>
+                  <div className="flex gap-1 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl">
+                    <button 
+                      onClick={() => handleAiExplain(concept)}
+                      disabled={isExplaining === concept.id}
+                      className={`p-2 rounded-lg text-slate-400 hover:text-indigo-500 transition-colors ${isExplaining === concept.id ? 'animate-pulse' : ''}`}
+                      title="AI Explain"
+                    >
+                      <Brain size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleAiIllustrate(concept)}
+                      disabled={isIllustrating === concept.id}
+                      className={`p-2 rounded-lg text-slate-400 hover:text-emerald-500 transition-colors ${isIllustrating === concept.id ? 'animate-spin' : ''}`}
+                      title="AI Illustrate"
+                    >
+                      <Sparkles size={18} />
+                    </button>
+                    <button 
+                      onClick={() => setConcepts(concepts.filter(c => c.id !== concept.id))}
+                      className="p-2 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
+
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block">{concept.subjectId}</span>
+                  <h3 className="text-xl font-black dark:text-white">{concept.title}</h3>
+                </div>
+                
+                <p className="text-slate-500 dark:text-slate-400 text-sm whitespace-pre-wrap leading-relaxed line-clamp-4 group-hover:line-clamp-none transition-all duration-300">
+                  {concept.content}
+                </p>
               </div>
 
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block">{concept.subjectId}</span>
-              <h3 className="text-xl font-black dark:text-white mb-4">{concept.title}</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm whitespace-pre-wrap leading-relaxed">{concept.content}</p>
+              {!concept.imageUrl && (
+                <div className="px-8 pb-8">
+                  <button 
+                    onClick={() => handleAiIllustrate(concept)}
+                    disabled={isIllustrating === concept.id}
+                    className={`w-full py-4 rounded-2xl border-2 border-dashed border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 hover:border-indigo-500 hover:text-indigo-500 transition-all ${isIllustrating === concept.id ? 'animate-pulse' : ''}`}
+                  >
+                    {isIllustrating === concept.id ? <RefreshCw className="animate-spin" size={14} /> : <ImageIcon size={14} />}
+                    {isIllustrating === concept.id ? 'Generating Visual...' : 'Illustrate Concept'}
+                  </button>
+                </div>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>
-
-        {filtered.length === 0 && (
-          <div className="col-span-full py-20 text-center flex flex-col items-center justify-center space-y-4">
-            <div className="p-8 bg-slate-50 dark:bg-slate-800 rounded-full text-slate-200">
-               <Filter size={48} />
-            </div>
-            <p className="text-slate-400 font-bold">No concepts found in your vault matching these criteria.</p>
-          </div>
-        )}
       </div>
 
       {isAdding && (
@@ -221,7 +273,7 @@ const ConceptVault: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                 </div>
                 <button 
                   onClick={handleAdd}
-                  className="w-full py-5 rounded-[2rem] text-white font-black text-lg shadow-xl shadow-indigo-500/20"
+                  className="w-full py-5 rounded-[2rem] text-white font-black text-lg shadow-xl"
                   style={{ backgroundColor: settings.primaryColor }}
                 >
                   Save to Vault

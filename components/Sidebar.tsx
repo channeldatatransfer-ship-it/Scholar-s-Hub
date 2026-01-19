@@ -14,7 +14,8 @@ import {
   ChevronRight,
   GraduationCap,
   ClipboardCheck,
-  Zap
+  Zap,
+  LayoutTemplate
 } from 'lucide-react';
 import { Syllabus, AppSettings } from '../types';
 
@@ -49,6 +50,7 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   const navItems = [
     { name: settings.language === 'BN' ? 'ড্যাশবোর্ড' : 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: settings.language === 'BN' ? 'ব্লুপ্রিন্ট' : 'Blueprints', path: '/blueprints', icon: LayoutTemplate },
     { name: settings.language === 'BN' ? 'সিলেবাস' : 'Syllabus', path: '/syllabus', icon: ClipboardCheck },
     { name: settings.language === 'BN' ? 'প্ল্যানার' : 'Planner', path: '/planner', icon: Calendar },
     { name: settings.language === 'BN' ? 'লাইব্রেরি' : 'Library', path: '/resources', icon: Library },
@@ -84,7 +86,7 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         {collapsed && <GraduationCap className="text-white w-8 h-8 mx-auto" />}
       </div>
 
-      <nav className="px-3 space-y-1">
+      <nav className="px-3 space-y-1 overflow-y-auto no-scrollbar max-h-[calc(100vh-250px)]">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;

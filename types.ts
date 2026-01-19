@@ -46,6 +46,7 @@ export interface Concept {
   content: string;
   category: 'formula' | 'definition' | 'theorem' | 'other';
   subjectId: string;
+  imageUrl?: string;
 }
 
 export interface FocusLog {
@@ -85,7 +86,7 @@ export interface Resource {
   id: string;
   name: string;
   size: string;
-  type: 'pdf' | 'folder';
+  type: 'pdf' | 'folder' | 'nctb';
   modified: string;
   url?: string;
 }

@@ -2,22 +2,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Folder, 
   File as FileIcon, 
   Search, 
   Upload, 
   Grid, 
   List, 
   Cloud, 
-  Download,
-  Eye,
-  RefreshCw,
-  X,
-  FileText,
-  Trash2,
-  AlertTriangle,
-  ExternalLink,
-  BookMarked
+  Eye, 
+  X, 
+  FileText, 
+  Trash2, 
+  AlertTriangle, 
+  BookMarked,
+  Download
 } from 'lucide-react';
 import { AppSettings } from '../types';
 
@@ -34,10 +31,10 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'local' | 'nctb' | 'drive'>('local');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Initialize local files from localStorage
   const [localFiles, setLocalFiles] = useState<FileItem[]>(() => {
     const saved = localStorage.getItem('scholars_local_files');
     return saved ? JSON.parse(saved) : [
@@ -56,17 +53,7 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     { id: 'd1', name: 'Lecture_Notes_Unit1.pdf', size: '4.5 MB', type: 'pdf', modified: 'Yesterday' },
   ];
 
-  useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setPreviewUrl(null);
-        setFileToDelete(null);
-      }
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, []);
-
+  // Persist local files to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('scholars_local_files', JSON.stringify(localFiles));
   }, [localFiles]);
@@ -78,21 +65,25 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
       if (file.type !== 'application/pdf') {
-        alert("Please upload PDF files only.");
+        alert(settings.language === 'BN' ? "শুধুমাত্র PDF ফাইল আপলোড করুন।" : "Please upload PDF files only.");
         return;
       }
 
+      // Create a metadata entry for the library
       const newFile: FileItem = {
         id: Date.now().toString(),
         name: file.name,
         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
         type: 'pdf',
-        modified: 'Just now',
-        url: URL.createObjectURL(file)
+        modified: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+        url: URL.createObjectURL(file) // Note: This URL is transient for the session
       };
 
       setLocalFiles(prev => [...prev, newFile]);
+      
+      // Reset input so the same file can be uploaded again if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -155,7 +146,7 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input 
                 type="text" 
-                placeholder="Search resources..." 
+                placeholder={settings.language === 'BN' ? 'রিসোর্স খুঁজুন...' : 'Search resources...'}
                 className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-3xl pl-14 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 dark:text-white"
               />
            </div>
@@ -179,13 +170,20 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
               {activeTab === 'local' && (
                 <>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="application/pdf" onChange={handleFileUpload} />
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="application/pdf" 
+                    onChange={handleFileUpload} 
+                  />
                   <button 
                     onClick={handleUploadClick}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-[2rem] font-black flex items-center gap-3 shadow-xl transition-all active:scale-95"
                     style={{ backgroundColor: settings.primaryColor }}
                   >
-                    <Upload className="w-5 h-5" /> Upload File
+                    <Upload className="w-5 h-5" /> 
+                    {settings.language === 'BN' ? 'ফাইল আপলোড' : 'Upload File'}
                   </button>
                 </>
               )}
@@ -210,10 +208,23 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                          <FileText className="w-10 h-10 text-slate-300" />
                        </div>
                      )}
-                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="bg-indigo-600 p-3 rounded-full text-white shadow-2xl transform hover:scale-110 transition-transform" style={{ backgroundColor: settings.primaryColor }}>
+                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                        <div 
+                          className="bg-indigo-600 p-3 rounded-full text-white shadow-2xl transform hover:scale-110 transition-transform" 
+                          style={{ backgroundColor: settings.primaryColor }}
+                          title="Preview"
+                        >
                           <Eye className="w-5 h-5" />
                         </div>
+                        {activeTab === 'local' && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setFileToDelete(file); }}
+                            className="bg-rose-500 p-3 rounded-full text-white shadow-2xl transform hover:scale-110 transition-transform"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
                   </div>
                   <p className="text-sm font-black text-slate-700 dark:text-slate-200 line-clamp-1 mb-1 tracking-tight">{file.name}</p>
@@ -245,22 +256,26 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                 <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/30 rounded-full flex items-center justify-center mb-6">
                   <AlertTriangle className="w-10 h-10 text-rose-500" />
                 </div>
-                <h3 className="text-2xl font-black dark:text-white mb-2">Delete Resource?</h3>
+                <h3 className="text-2xl font-black dark:text-white mb-2">
+                  {settings.language === 'BN' ? 'রিসোর্স মুছে ফেলবেন?' : 'Delete Resource?'}
+                </h3>
                 <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-                  Are you sure you want to remove <strong className="text-slate-900 dark:text-white">"{fileToDelete.name}"</strong>? This action cannot be undone.
+                  {settings.language === 'BN' 
+                    ? `আপনি কি নিশ্চিত যে আপনি "${fileToDelete.name}" মুছতে চান? এটি পুনরুদ্ধার করা যাবে না।`
+                    : `Are you sure you want to remove "${fileToDelete.name}"? This action cannot be undone.`}
                 </p>
                 <div className="flex gap-4 w-full">
                   <button 
                     onClick={() => setFileToDelete(null)}
                     className="flex-1 py-4 font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                   >
-                    Cancel
+                    {settings.language === 'BN' ? 'বাতিল' : 'Cancel'}
                   </button>
                   <button 
                     onClick={confirmDelete}
                     className="flex-1 py-4 font-bold text-white bg-rose-500 rounded-2xl shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95"
                   >
-                    Delete File
+                    {settings.language === 'BN' ? 'মুছে ফেলুন' : 'Delete File'}
                   </button>
                 </div>
               </div>
@@ -293,9 +308,18 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                       </div>
                       <h3 className="font-black text-xl dark:text-white">Document View</h3>
                   </div>
-                  <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-slate-500 hover:text-rose-500 transition-all">
-                    Close <X className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <a 
+                      href={previewUrl} 
+                      download 
+                      className="flex items-center gap-2 px-6 py-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl font-bold transition-all hover:bg-emerald-100"
+                    >
+                      <Download className="w-5 h-5" /> {settings.language === 'BN' ? 'ডাউনলোড' : 'Download'}
+                    </a>
+                    <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-slate-500 hover:text-rose-500 transition-all">
+                      {settings.language === 'BN' ? 'বন্ধ করুন' : 'Close'} <X className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950">
                   <iframe src={previewUrl} className="w-full h-full border-none" title="PDF Preview" />

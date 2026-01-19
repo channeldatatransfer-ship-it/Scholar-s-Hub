@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -14,6 +15,7 @@ import SyllabusTracker from './components/SyllabusTracker';
 import ScholarAI from './components/ScholarAI';
 import CommandPalette from './components/CommandPalette';
 import ConceptVault from './components/ConceptVault';
+import TemplateHub from './components/TemplateHub';
 import { AppSettings } from './types';
 
 const App: React.FC = () => {
@@ -65,6 +67,7 @@ const App: React.FC = () => {
           >
             <Routes location={location}>
               <Route path="/" element={<Dashboard settings={settings} />} />
+              <Route path="/blueprints" element={<TemplateHub settings={settings} />} />
               <Route path="/syllabus" element={<SyllabusTracker settings={settings} />} />
               <Route path="/planner" element={<Planner settings={settings} />} />
               <Route path="/resources" element={<ResourceLibrary settings={settings} />} />

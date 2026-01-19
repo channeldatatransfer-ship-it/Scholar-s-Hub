@@ -3,6 +3,76 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const MODEL_NAME = 'gemini-3-flash-preview';
 
+export const generateTemplateFromAi = async (prompt: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const systemInstruction = `You are a curriculum expert for Bangladeshi students. 
+  Generate a comprehensive study blueprint based on the user's request.
+  Return a JSON object with:
+  1. title: A catchy name for the template.
+  2. subjects: Array of objects { subject: string, chapters: [{ title: string, topics: [string] }] }
+  3. schedule: Array of 5-7 key milestone dates (as relative days, e.g., "Day 1", "Day 3").
+  Ensure it follows the NCTB (National Curriculum and Textbook Board) standards where applicable.`;
+
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          subjects: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                subject: { type: Type.STRING },
+                chapters: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      topics: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          schedule: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["title", "subjects", "schedule"]
+      }
+    }
+  });
+
+  return JSON.parse(response.text || '{}');
+};
+
+export const generateConceptImage = async (conceptTitle: string, description: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `A clear, high-quality educational diagram or visual aid for the scientific/academic concept: "${conceptTitle}". Context: ${description}. Style: Minimalist, clean 3D illustration or flat educational vector, white background, informative and accurate.`;
+  
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: [{ parts: [{ text: prompt }] }],
+    config: {
+      imageConfig: {
+        aspectRatio: "1:1"
+      }
+    }
+  });
+
+  for (const part of response.candidates[0].content.parts) {
+    if (part.inlineData) {
+      return `data:image/png;base64,${part.inlineData.data}`;
+    }
+  }
+  return null;
+};
+
 export const generateQuizFromContent = async (content: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
