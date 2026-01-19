@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
-import { Search, Plus, Trash2, Edit3, Volume2, Wand2, FileText, ChevronRight } from 'lucide-react';
+import { Search, Plus, Trash2, Volume2, Wand2, FileText, ChevronRight } from 'lucide-react';
+import { AppSettings } from '../types';
+import { simplifyContent } from '../services/geminiService';
 
 interface Note {
   id: string;
@@ -9,7 +11,7 @@ interface Note {
   date: string;
 }
 
-const Notes: React.FC = () => {
+const Notes: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [notes, setNotes] = useState<Note[]>(() => {
     const saved = localStorage.getItem('scholars_notes');
     return saved ? JSON.parse(saved) : [
@@ -59,12 +61,17 @@ const Notes: React.FC = () => {
   const handleEli5 = async () => {
     if (!activeNote?.content) return;
     setIsAiLoading(true);
-    // Simulate AI call
-    setTimeout(() => {
-      const simplified = `[ELI5 SIMULATION]: Imagine your body is like a city. ${activeNote.content.toLowerCase().replace(/mitochondria/g, 'the power plant').replace(/atp/g, 'electricity')}`;
-      updateNote(activeNote.id, { content: activeNote.content + "\n\n--- Simplified ---\n" + simplified });
+    try {
+      const simplified = await simplifyContent(activeNote.content);
+      updateNote(activeNote.id, { 
+        content: activeNote.content + "\n\n--- Simplified (ELI5) ---\n" + simplified 
+      });
+    } catch (err) {
+      console.error(err);
+      alert("Error simplifying content. Please try again.");
+    } finally {
       setIsAiLoading(false);
-    }, 1500);
+    }
   };
 
   const filteredNotes = notes.filter(n => 
@@ -90,6 +97,7 @@ const Notes: React.FC = () => {
           <button 
             onClick={createNote}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+            style={{ backgroundColor: settings.primaryColor }}
           >
             <Plus className="w-4 h-4" /> New Note
           </button>
@@ -100,9 +108,12 @@ const Notes: React.FC = () => {
               key={note.id}
               onClick={() => setActiveNoteId(note.id)}
               className={`w-full text-left p-4 rounded-2xl transition-all group ${activeNoteId === note.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+              style={activeNoteId === note.id ? { backgroundColor: `${settings.primaryColor}1A` } : {}}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className={`font-bold text-sm line-clamp-1 ${activeNoteId === note.id ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'}`}>{note.title}</span>
+                <span className={`font-bold text-sm line-clamp-1 ${activeNoteId === note.id ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'}`}
+                  style={activeNoteId === note.id ? { color: settings.primaryColor } : {}}
+                >{note.title}</span>
                 <ChevronRight className={`w-4 h-4 text-slate-300 transition-transform ${activeNoteId === note.id ? 'translate-x-1' : ''}`} />
               </div>
               <p className="text-xs text-slate-400 line-clamp-2">{note.content || 'No content yet...'}</p>
@@ -135,6 +146,7 @@ const Notes: React.FC = () => {
                   onClick={handleEli5}
                   disabled={isAiLoading}
                   className={`flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 rounded-xl font-bold text-sm transition-all hover:bg-indigo-100 ${isAiLoading ? 'animate-pulse cursor-not-allowed' : ''}`}
+                  style={{ color: settings.primaryColor, backgroundColor: `${settings.primaryColor}1A` }}
                 >
                   <Wand2 className="w-4 h-4" /> {isAiLoading ? 'Thinking...' : 'ELI5'}
                 </button>

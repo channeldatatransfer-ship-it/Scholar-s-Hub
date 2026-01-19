@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Planner from './components/Planner';
@@ -11,6 +12,8 @@ import QuizGenerator from './components/QuizGenerator';
 import FocusTimer from './components/FocusTimer';
 import Settings from './components/Settings';
 import SyllabusTracker from './components/SyllabusTracker';
+import ScholarAI from './components/ScholarAI';
+import CommandPalette from './components/CommandPalette';
 import { AppSettings } from './types';
 
 const App: React.FC = () => {
@@ -22,35 +25,53 @@ const App: React.FC = () => {
     };
   });
 
+  const location = useLocation();
+
   useEffect(() => {
     localStorage.setItem('scholars_settings', JSON.stringify(settings));
+    
+    const root = document.documentElement;
+    root.style.setProperty('--primary-color', settings.primaryColor);
+    root.style.setProperty('--primary-glow', `${settings.primaryColor}4D`); 
+    
     if (settings.darkMode) {
-      document.documentElement.classList.add('dark');
-      document.body.classList.remove('bg-indigo-50');
-      document.body.classList.add('bg-slate-900', 'text-white');
+      root.classList.add('dark');
+      document.body.className = 'bg-slate-950 text-white min-h-screen';
     } else {
-      document.documentElement.classList.remove('dark');
-      document.body.classList.add('bg-indigo-50');
-      document.body.classList.remove('bg-slate-900', 'text-white');
+      root.classList.remove('dark');
+      document.body.className = 'bg-slate-50 text-slate-900 min-h-screen';
     }
   }, [settings]);
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 p-4 lg:p-8 overflow-y-auto h-screen">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/syllabus" element={<SyllabusTracker />} />
-          <Route path="/planner" element={<Planner />} />
-          <Route path="/resources" element={<ResourceLibrary />} />
-          <Route path="/flashcards" element={<Flashcards />} />
-          <Route path="/notes" element={<Notes />} />
-          <Route path="/quiz" element={<QuizGenerator settings={settings} />} />
-          <Route path="/timer" element={<FocusTimer />} />
-          <Route path="/settings" element={<Settings settings={settings} onUpdate={setSettings} />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+    <div className="flex min-h-screen selection:bg-indigo-500/20">
+      <CommandPalette />
+      <Sidebar settings={settings} />
+      <main className="flex-1 p-4 lg:p-8 overflow-y-auto h-screen relative scroll-smooth">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="h-full"
+          >
+            <Routes location={location}>
+              <Route path="/" element={<Dashboard settings={settings} />} />
+              <Route path="/syllabus" element={<SyllabusTracker settings={settings} />} />
+              <Route path="/planner" element={<Planner settings={settings} />} />
+              <Route path="/resources" element={<ResourceLibrary settings={settings} />} />
+              <Route path="/flashcards" element={<Flashcards settings={settings} />} />
+              <Route path="/notes" element={<Notes settings={settings} />} />
+              <Route path="/quiz" element={<QuizGenerator settings={settings} />} />
+              <Route path="/timer" element={<FocusTimer settings={settings} />} />
+              <Route path="/settings" element={<Settings settings={settings} onUpdate={setSettings} />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
+        <ScholarAI settings={settings} />
       </main>
     </div>
   );

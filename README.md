@@ -1,20 +1,23 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Scholar's Hub
 
-# Run and deploy your AI Studio app
+A comprehensive, aesthetics-first student exam preparation platform with AI-powered study tools, spaced repetition flashcards, focus timers, and a smart planner.
 
-This contains everything you need to run your app locally.
+## ✨ Core Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1ccnlkheeV9pVEmnqjlwfT1lsDHMDiN2E
+- **Dashboard**: Personalized overview of study streaks, progress, and active tasks.
+- **Syllabus Tracker**: Break down subjects into topics and track mastery.
+- **AI Quiz Generator**: Generate multiple-choice quizzes from your study material using Gemini AI.
+- **Mastery Flashcards**: Use a Spaced Repetition System (SRS) to memorize concepts effectively.
+- **Focus Timer**: Pomodoro timer with "Zen Mode" ambient soundscapes.
+- **Smart Notes**: Take structured notes with built-in ELI5 (AI simplification) and Text-to-Speech helpers.
+- **Resource Library**: Manage PDFs and documents in a clean, folder-based UI.
+- **Study Planner**: Map out your exam schedule and upcoming events.
 
-## Run Locally
+## 🛠 Tech Stack
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- **React**: Modern component-based UI.
+- **Tailwind CSS**: Glassmorphism and responsive design.
+- **Lucide React**: Clean iconography.
+- **Framer Motion**: Smooth interface transitions.
+- **Gemini AI**: Powers the Quiz Generator and Note helpers.
+- **LocalStorage**: Persistent data storage across sessions.

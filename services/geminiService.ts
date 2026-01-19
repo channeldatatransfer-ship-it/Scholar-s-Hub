@@ -1,12 +1,12 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-export const generateQuizFromContent = async (apiKey: string, content: string) => {
-  if (!apiKey) throw new Error("API Key is missing");
-  
-  const ai = new GoogleGenAI({ apiKey });
+const MODEL_NAME = 'gemini-3-flash-preview';
+
+export const generateQuizFromContent = async (content: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: MODEL_NAME,
     contents: `Generate a 5-question multiple choice quiz based on the following text. Each question should have 4 options and 1 correct answer.
     
     Content: ${content}`,
@@ -24,11 +24,37 @@ export const generateQuizFromContent = async (apiKey: string, content: string) =
             },
             correctAnswer: { type: Type.INTEGER, description: 'The index of the correct option (0-3)' }
           },
-          required: ["question", "options", "correctAnswer"]
+          required: ["question", "options", "correctAnswer"],
+          propertyOrdering: ["question", "options", "correctAnswer"]
         }
       }
     }
   });
 
-  return JSON.parse(response.text);
+  const jsonStr = response.text || '[]';
+  return JSON.parse(jsonStr.trim());
+};
+
+export const simplifyContent = async (content: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: `Explain the following text like I'm 5 years old. Keep it simple and use analogies if helpful:
+    
+    ${content}`,
+  });
+  
+  return response.text || "";
+};
+
+export const scholarChat = async (message: string, context?: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: message,
+    config: {
+      systemInstruction: "You are Scholar AI, a brilliant and friendly study tutor. You help students understand complex topics, stay motivated, and organize their studies. Be concise, encouraging, and academic but accessible. If the student asks about a subject you don't know, suggest they check their 'Resource Library'.",
+    }
+  });
+  return response.text || "I'm sorry, I couldn't process that. Can you try rephrasing?";
 };

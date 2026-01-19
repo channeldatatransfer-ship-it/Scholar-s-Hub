@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { BrainCircuit, Upload, Sparkles, AlertCircle, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { BrainCircuit, Upload, Sparkles, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import { generateQuizFromContent } from '../services/geminiService';
 import { AppSettings } from '../types';
 
@@ -20,16 +20,17 @@ const QuizGenerator: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
 
   const handleGenerate = async () => {
-    if (!content.trim() || !settings.geminiKey) return;
+    if (!content.trim()) return;
     setLoading(true);
     try {
-      const data = await generateQuizFromContent(settings.geminiKey, content);
+      const data = await generateQuizFromContent(content);
       setQuiz(data);
       setCurrentIdx(0);
       setScore(0);
       setShowResult(false);
     } catch (err) {
-      alert("Error generating quiz. Check your API Key.");
+      console.error(err);
+      alert("Error generating quiz. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -60,12 +61,6 @@ const QuizGenerator: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
       {!quiz ? (
         <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
-          {!settings.geminiKey && (
-            <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center gap-3 text-amber-700 dark:text-amber-400">
-              <AlertCircle className="w-5 h-5" />
-              <p className="text-sm font-medium">Add your Gemini API Key in Settings to use this feature.</p>
-            </div>
-          )}
           <label className="block text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Paste Course Material / Syllabus</label>
           <textarea 
             className="w-full h-64 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-6 focus:ring-2 focus:ring-indigo-500/20 mb-6 dark:text-white"
@@ -76,8 +71,9 @@ const QuizGenerator: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           <div className="flex items-center gap-4">
              <button 
               onClick={handleGenerate}
-              disabled={loading || !content.trim() || !settings.geminiKey}
+              disabled={loading || !content.trim()}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-2xl py-4 font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+              style={{ backgroundColor: settings.primaryColor }}
              >
                {loading ? <Sparkles className="animate-spin" /> : <Sparkles />}
                {loading ? 'Generating...' : 'Generate AI Quiz'}
@@ -90,14 +86,15 @@ const QuizGenerator: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       ) : showResult ? (
         <div className="bg-white dark:bg-slate-800 p-12 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-xl text-center">
           <div className="mb-6 inline-flex p-6 bg-indigo-50 dark:bg-indigo-900/30 rounded-full">
-            <CheckCircle2 className="w-16 h-16 text-indigo-600" />
+            <CheckCircle2 className="w-16 h-16 text-indigo-600" style={{ color: settings.primaryColor }} />
           </div>
           <h2 className="text-3xl font-bold mb-2 dark:text-white">Quiz Completed!</h2>
           <p className="text-slate-500 mb-8">You scored {score} out of {quiz.length}</p>
-          <div className="text-5xl font-black text-indigo-600 mb-10">{Math.round((score/quiz.length)*100)}%</div>
+          <div className="text-5xl font-black text-indigo-600 mb-10" style={{ color: settings.primaryColor }}>{Math.round((score/quiz.length)*100)}%</div>
           <button 
             onClick={() => setQuiz(null)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95"
+            style={{ backgroundColor: settings.primaryColor }}
           >
             Generate New Quiz
           </button>
@@ -107,7 +104,7 @@ const QuizGenerator: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           <div className="flex items-center justify-between mb-8">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Question {currentIdx + 1} of {quiz.length}</span>
             <div className="w-32 bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden">
-               <div className="bg-indigo-600 h-full transition-all" style={{width: `${((currentIdx+1)/quiz.length)*100}%`}}></div>
+               <div className="bg-indigo-600 h-full transition-all" style={{width: `${((currentIdx+1)/quiz.length)*100}%`, backgroundColor: settings.primaryColor }}></div>
             </div>
           </div>
           
@@ -142,6 +139,7 @@ const QuizGenerator: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             disabled={selectedAnswer === null}
             onClick={nextQuestion}
             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-2xl py-4 font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+            style={{ backgroundColor: settings.primaryColor }}
           >
             {currentIdx + 1 === quiz.length ? 'Finish Quiz' : 'Next Question'} <ArrowRight className="w-4 h-4" />
           </button>

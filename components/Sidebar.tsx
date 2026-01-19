@@ -15,19 +15,21 @@ import {
   GraduationCap,
   ClipboardCheck
 } from 'lucide-react';
-import { Syllabus } from '../types';
+import { Syllabus, AppSettings } from '../types';
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [progress, setProgress] = useState(0);
   const location = useLocation();
 
   useEffect(() => {
     const calculateProgress = () => {
-      const saved = localStorage.getItem('scholars_syllabuses');
+      // Use scholars_syllabuses_v2 to match SyllabusTracker
+      const saved = localStorage.getItem('scholars_syllabuses_v2');
       if (saved) {
         const syllabuses: Syllabus[] = JSON.parse(saved);
-        const allTopics = syllabuses.flatMap(s => s.topics);
+        // Syllabus has chapters which have topics. Extract all topics.
+        const allTopics = syllabuses.flatMap(s => s.chapters.flatMap(c => c.topics));
         if (allTopics.length === 0) {
           setProgress(0);
           return;
@@ -38,11 +40,8 @@ const Sidebar: React.FC = () => {
     };
 
     calculateProgress();
-    // Listen for storage events to update progress across components
     window.addEventListener('storage', calculateProgress);
-    // Custom event for same-window updates
     window.addEventListener('syllabusUpdate', calculateProgress);
-    
     return () => {
       window.removeEventListener('storage', calculateProgress);
       window.removeEventListener('syllabusUpdate', calculateProgress);
@@ -62,14 +61,21 @@ const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className={`
-      relative h-screen bg-indigo-700 dark:bg-slate-800 transition-all duration-300 border-r border-indigo-500/20 shadow-xl z-50
-      ${collapsed ? 'w-20' : 'w-64'}
-    `}>
+    <aside 
+      style={{ 
+        backgroundColor: settings.darkMode ? undefined : settings.primaryColor,
+        background: settings.darkMode ? undefined : `linear-gradient(180deg, ${settings.primaryColor} 0%, ${settings.primaryColor}EE 100%)`
+      }}
+      className={`
+        relative h-screen transition-all duration-300 border-r dark:border-slate-800 shadow-xl z-50
+        ${settings.darkMode ? 'bg-slate-900 border-slate-800' : 'text-white border-transparent'}
+        ${collapsed ? 'w-20' : 'w-64'}
+      `}
+    >
       <div className="p-6 mb-8 flex items-center justify-between">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-xl">
+            <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
               <GraduationCap className="text-white w-6 h-6" />
             </div>
             <span className="text-white font-bold text-xl tracking-tight">Scholar Hub</span>
@@ -89,9 +95,10 @@ const Sidebar: React.FC = () => {
               className={`
                 flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-200 group
                 ${isActive 
-                  ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm' 
-                  : 'text-indigo-100 hover:bg-white/10 hover:text-white'}
+                  ? 'bg-white text-slate-900 shadow-lg' 
+                  : settings.darkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}
               `}
+              style={isActive && !settings.darkMode ? { color: settings.primaryColor } : {}}
             >
               <Icon className={`w-6 h-6 shrink-0 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
               {!collapsed && <span className="font-medium">{item.name}</span>}
@@ -102,14 +109,15 @@ const Sidebar: React.FC = () => {
 
       <button 
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-20 bg-indigo-600 dark:bg-indigo-500 text-white p-1.5 rounded-full shadow-lg hover:bg-indigo-500 transition-colors border-2 border-indigo-50"
+        className="absolute -right-3 top-20 text-white p-1.5 rounded-full shadow-lg hover:brightness-110 transition-all border-2 dark:border-slate-800 border-white"
+        style={{ backgroundColor: settings.primaryColor }}
       >
         {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
       </button>
 
       {!collapsed && (
         <div className="absolute bottom-8 left-6 right-6 p-4 glass-card rounded-2xl">
-          <p className="text-xs text-indigo-100/70 mb-2 uppercase tracking-widest font-bold">Overall Progress</p>
+          <p className="text-xs text-white/70 mb-2 uppercase tracking-widest font-bold">Overall Progress</p>
           <div className="w-full bg-white/20 h-2 rounded-full mb-2">
             <div 
               className="bg-white h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(255,255,255,0.5)]"

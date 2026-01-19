@@ -10,13 +10,13 @@ import {
   Cloud, 
   ExternalLink, 
   MoreVertical,
-  ChevronRight,
   Download,
   Eye,
   RefreshCw,
   X,
   FileText
 } from 'lucide-react';
+import { AppSettings } from '../types';
 
 interface FileItem {
   id: string;
@@ -27,7 +27,7 @@ interface FileItem {
   url?: string;
 }
 
-const ResourceLibrary: React.FC = () => {
+const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -115,12 +115,14 @@ const ResourceLibrary: React.FC = () => {
            <button 
             onClick={() => setActiveTab('local')}
             className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'local' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+            style={activeTab === 'local' ? { backgroundColor: settings.primaryColor } : {}}
            >
              <FileIcon className="w-4 h-4" /> Local Files
            </button>
            <button 
             onClick={() => setActiveTab('drive')}
             className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'drive' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+            style={activeTab === 'drive' ? { backgroundColor: settings.primaryColor } : {}}
            >
              <Cloud className="w-4 h-4" /> Google Drive
            </button>
@@ -142,12 +144,14 @@ const ResourceLibrary: React.FC = () => {
                  <button 
                   onClick={() => setView('grid')}
                   className={`p-2 rounded-lg transition-all ${view === 'grid' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                  style={view === 'grid' ? { color: settings.primaryColor } : {}}
                  >
                    <Grid className="w-5 h-5" />
                  </button>
                  <button 
                   onClick={() => setView('list')}
                   className={`p-2 rounded-lg transition-all ${view === 'list' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                  style={view === 'list' ? { color: settings.primaryColor } : {}}
                  >
                    <List className="w-5 h-5" />
                  </button>
@@ -165,6 +169,7 @@ const ResourceLibrary: React.FC = () => {
                   <button 
                     onClick={handleUploadClick}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-md transition-all active:scale-95 animate-in fade-in zoom-in"
+                    style={{ backgroundColor: settings.primaryColor }}
                   >
                     <Upload className="w-5 h-5" /> Upload PDF
                   </button>
@@ -172,6 +177,7 @@ const ResourceLibrary: React.FC = () => {
               ) : (
                 <button 
                   className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-indigo-100 transition-all active:scale-95 animate-in fade-in zoom-in"
+                  style={{ color: settings.primaryColor, backgroundColor: `${settings.primaryColor}1A` }}
                 >
                   <RefreshCw className="w-5 h-5" /> Sync Drive
                 </button>
@@ -190,13 +196,13 @@ const ResourceLibrary: React.FC = () => {
                   >
                     <div className="mb-4 relative">
                        {file.type === 'folder' ? (
-                         <Folder className="w-16 h-16 text-indigo-400 fill-indigo-50" />
+                         <Folder className="w-16 h-16 text-indigo-400 fill-indigo-50" style={{ color: `${settings.primaryColor}80` }} />
                        ) : (
                          <FileText className="w-16 h-16 text-slate-300" />
                        )}
                        {file.type !== 'folder' && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="bg-indigo-600 p-2 rounded-full text-white shadow-lg transform hover:scale-110 transition-transform">
+                          <div className="bg-indigo-600 p-2 rounded-full text-white shadow-lg transform hover:scale-110 transition-transform" style={{ backgroundColor: settings.primaryColor }}>
                             <Eye className="w-4 h-4" />
                           </div>
                         </div>
@@ -243,7 +249,7 @@ const ResourceLibrary: React.FC = () => {
                       >
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-3">
-                            {file.type === 'folder' ? <Folder className="w-5 h-5 text-indigo-400" /> : <FileText className="w-5 h-5 text-slate-400" />}
+                            {file.type === 'folder' ? <Folder className="w-5 h-5 text-indigo-400" style={{ color: settings.primaryColor }} /> : <FileText className="w-5 h-5 text-slate-400" />}
                             <span className="font-medium text-slate-700 dark:text-slate-200">{file.name}</span>
                           </div>
                         </td>
@@ -254,6 +260,7 @@ const ResourceLibrary: React.FC = () => {
                              <button 
                                 onClick={(e) => { e.stopPropagation(); openPreview(file); }}
                                 className="p-2 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-600"
+                                style={{ color: settings.primaryColor }}
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
@@ -299,7 +306,7 @@ const ResourceLibrary: React.FC = () => {
            >
               <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                  <h3 className="font-bold text-lg dark:text-white flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-indigo-600" />
+                    <FileText className="w-5 h-5 text-indigo-600" style={{ color: settings.primaryColor }} />
                     Document Preview
                  </h3>
                  <button 

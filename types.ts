@@ -12,10 +12,16 @@ export interface Topic {
   completed: boolean;
 }
 
+export interface Chapter {
+  id: string;
+  title: string;
+  topics: Topic[];
+}
+
 export interface Syllabus {
   id: string;
   subject: string;
-  topics: Topic[];
+  chapters: Chapter[];
   color: string;
 }
 
@@ -24,39 +30,42 @@ export interface Flashcard {
   deckId: string;
   front: string;
   back: string;
-  nextReview: number; // timestamp
-  interval: number; // days
+  nextReview: number;
+  interval: number;
   easeFactor: number;
+  reps: number;
+  lapses: number;
+  state: 'new' | 'learning' | 'review';
 }
 
 export interface Deck {
   id: string;
   name: string;
   description: string;
-  cardCount: number;
 }
 
 export interface Note {
   id: string;
   title: string;
   content: string;
-  updatedAt: number;
+  date: string;
 }
 
 export interface Resource {
   id: string;
   name: string;
-  type: 'pdf' | 'folder' | 'doc';
-  url: string;
-  parentId: string | null;
+  size: string;
+  type: 'pdf' | 'folder';
+  modified: string;
+  url?: string;
 }
 
 export interface CalendarEvent {
   id: string;
   title: string;
-  start: Date;
-  end: Date;
-  allDay?: boolean;
+  date: string; // ISO format
+  category: string;
+  time: string;
 }
 
 export interface UserStats {
@@ -68,7 +77,6 @@ export interface UserStats {
 export interface AppSettings {
   darkMode: boolean;
   primaryColor: string;
-  geminiKey?: string;
   gdriveKey?: string;
   gdriveClientId?: string;
 }
