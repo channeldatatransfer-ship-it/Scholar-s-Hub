@@ -46,15 +46,19 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     const savedLogs = localStorage.getItem('scholars_focus_logs');
     if (savedLogs) setFocusLogs(JSON.parse(savedLogs));
 
-    // Countdown Logic (Target: April 1, 2025)
-    const target = new Date('2025-04-01T00:00:00');
+    // Countdown Logic (Target: April 1, 2027 for HSC 27)
+    const target = new Date('2027-04-01T00:00:00');
     const timer = setInterval(() => {
       const now = new Date();
       const diff = target.getTime() - now.getTime();
+      
+      // Ensure we don't show negative values if the date passed
+      const remaining = Math.max(0, diff);
+      
       setTimeLeft({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
-        mins: Math.floor((diff / 1000 / 60) % 60)
+        days: Math.floor(remaining / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((remaining / (1000 * 60 * 60)) % 24),
+        mins: Math.floor((remaining / 1000 / 60) % 60)
       });
     }, 1000);
     return () => clearInterval(timer);
@@ -98,7 +102,7 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               </div>
            </div>
            <div className="h-10 w-px bg-white/20 mx-2" />
-           <p className="text-xs font-black uppercase tracking-tighter leading-none">{settings.examLevel}<br/>Exam 2025</p>
+           <p className="text-xs font-black uppercase tracking-tighter leading-none">{settings.examLevel}<br/>Exam 2027</p>
         </div>
       </header>
 
@@ -140,7 +144,6 @@ const Dashboard: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
              <div onClick={() => navigate('/gpa')} className="bg-white dark:bg-slate-900 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl transition-all cursor-pointer group">
-                {/* Fixed missing Calculator icon */}
                 <div className="p-5 bg-amber-50 rounded-2xl text-amber-600 w-fit mb-6"><Calculator className="w-8 h-8" /></div>
                 <h3 className="text-2xl font-black dark:text-white mb-2">{isBN ? 'জিপিএ ক্যালকুলেটর' : 'GPA Calculator'}</h3>
                 <p className="text-sm text-slate-500">Predict your academic grades.</p>

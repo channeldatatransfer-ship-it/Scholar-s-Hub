@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ClipboardCheck, 
@@ -20,7 +20,10 @@ import {
   Loader2,
   Layers,
   MoreVertical,
-  FilterX
+  FilterX,
+  Download,
+  Upload,
+  FileJson
 } from 'lucide-react';
 import { AppSettings, Syllabus, Chapter, Topic } from '../types';
 import { fetchSyllabusForLevel } from '../services/geminiService';
@@ -34,6 +37,8 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [syncProgress, setSyncProgress] = useState(0);
   const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
   
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   // Editing state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -54,6 +59,89 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     setSyllabuses(data);
     localStorage.setItem('scholars_syllabuses_v2', JSON.stringify(data));
     window.dispatchEvent(new Event('syllabusUpdate'));
+  };
+
+  const handleExportSyllabus = () => {
+    if (syllabuses.length === 0) {
+      alert(isBN ? "রপ্তানি করার মতো কোনো সিলেবাস নেই।" : "No syllabus to export.");
+      return;
+    }
+    const dataStr = JSON.stringify(syllabuses, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const exportFileDefaultName = `scholars_syllabus_backup_${new Date().toISOString().split('T')[0]}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', url);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    
+    // Cleanup
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  };
+
+  const handleImportClick = () => {
+    if (importInputRef.current) {
+      importInputRef.current.value = ''; // Reset to allow same file re-import
+      importInputRef.current.click();
+    }
+  };
+
+  const handleImportSyllabus = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importedData = JSON.parse(content);
+        
+        if (Array.isArray(importedData)) {
+          const confirmMsg = isBN 
+            ? "আপনি কি নিশ্চিত যে নতুন সিলেবাসটি ইমপোর্ট করতে চান? এটি বর্তমান ডাটার সাথে যুক্ত হবে।" 
+            : "Are you sure you want to import this syllabus? It will be merged with your current data.";
+            
+          if (window.confirm(confirmMsg)) {
+            // Regeneration of IDs to prevent conflicts and ensure unique keys
+            const timestamp = Date.now();
+            const uniqueImported = importedData.map((s: Syllabus, sIdx: number) => ({
+              ...s,
+              id: `imported-${timestamp}-${sIdx}-${Math.random().toString(36).substr(2, 9)}`,
+              chapters: (s.chapters || []).map((c: Chapter, cIdx: number) => ({
+                ...c,
+                id: `imp-ch-${timestamp}-${sIdx}-${cIdx}`,
+                topics: (c.topics || []).map((t: Topic, tIdx: number) => ({
+                  ...t,
+                  id: `imp-tp-${timestamp}-${sIdx}-${cIdx}-${tIdx}`
+                }))
+              }))
+            }));
+
+            // Use functional state update to ensure we have latest state
+            setSyllabuses(prev => {
+              const next = [...prev, ...uniqueImported];
+              localStorage.setItem('scholars_syllabuses_v2', JSON.stringify(next));
+              window.dispatchEvent(new Event('syllabusUpdate'));
+              return next;
+            });
+            
+            if (uniqueImported.length > 0) {
+              setActiveSubjectId(uniqueImported[0].id);
+            }
+            
+            alert(isBN ? "সিলেবাস সফলভাবে ইমপোর্ট করা হয়েছে!" : "Syllabus imported successfully!");
+          }
+        } else {
+          throw new Error("Data is not an array");
+        }
+      } catch (error) {
+        console.error("Import error:", error);
+        alert(isBN ? "ভুল ফাইল ফরম্যাট। দয়া করে একটি সঠিক JSON ফাইল দিন।" : "Invalid file format. Please provide a valid syllabus JSON file.");
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleAiSync = async () => {
@@ -295,9 +383,6 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       if (chapterMatch || filteredTopics.length > 0) {
         return {
           ...chapter,
-          // If the chapter title itself matches, we could show all topics or just filtered.
-          // For a true filter experience, we show only matching topics if any, 
-          // otherwise if only chapter matches, show all its topics.
           topics: filteredTopics.length > 0 ? filteredTopics : chapter.topics
         };
       }
@@ -307,6 +392,13 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
   return (
     <div className="max-w-7xl mx-auto h-[calc(100vh-120px)] flex gap-6 animate-in fade-in duration-500 relative">
+      <input 
+        type="file" 
+        ref={importInputRef} 
+        onChange={handleImportSyllabus} 
+        className="hidden" 
+        accept=".json" 
+      />
       
       {/* AI SYNC OVERLAY */}
       <AnimatePresence>
@@ -401,6 +493,21 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               className="p-4 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all"
             >
               <Plus size={20} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button 
+              onClick={handleExportSyllabus}
+              className="flex items-center justify-center gap-2 py-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-all border border-slate-100 dark:border-slate-700"
+            >
+              <Download size={14} /> {isBN ? 'রপ্তানি' : 'Export'}
+            </button>
+            <button 
+              onClick={handleImportClick}
+              className="flex items-center justify-center gap-2 py-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-all border border-slate-100 dark:border-slate-700"
+            >
+              <Upload size={14} /> {isBN ? 'আমদানি' : 'Import'}
             </button>
           </div>
         </div>
@@ -514,7 +621,7 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                            >
                               <button
                                 onClick={() => toggleTopic(activeSubject.id, chapter.id, topic.id)}
-                                className={`shrink-0 transition-colors ${topic.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-400'}`}
+                                className={`shrink-0 transition-colors ${topic.completed ? 'text-emerald-500' : 'text-slate-300'}`}
                               >
                                  {topic.completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
                               </button>

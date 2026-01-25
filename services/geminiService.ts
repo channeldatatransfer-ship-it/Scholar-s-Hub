@@ -179,14 +179,28 @@ export const getStudyAdvise = async (syllabusData: string, focusData: string) =>
   return response.text || "পড়াশোনা চালিয়ে যাও, স্কলার!";
 };
 
-export const autoScheduleEvents = async (syllabus: string, existingEvents: string) => {
+export const autoScheduleEvents = async (syllabus: string, currentRoutine: string, pendingTasks: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `As an expert academic planner, analyze the student's context and suggest study sessions to fill their empty time slots (marked as 'none').
+  
+  CONTEXT:
+  - Syllabus: ${syllabus}
+  - Current 24h Routine: ${currentRoutine}
+  - Pending Tasks: ${pendingTasks}
+  
+  GOAL:
+  Suggest up to 4 study sessions to replace 'none' slots. 
+  
+  RULES:
+  - Return ONLY a JSON array of objects.
+  - Each object must be: { "hour": number (0-23), "type": "study", "label": "Short Bengali Label" }
+  - The label should be based on the pending tasks or subjects from syllabus.
+  - Do NOT suggest slots that are already 'study', 'sleep', or 'break'.
+  - Labels MUST be in Bengali (Bangla).`;
+
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Analyze syllabus and schedule. Suggest 3 study sessions. 
-    Use Bengali for event titles.
-    Syllabus: ${syllabus}
-    Current Events: ${existingEvents}`,
+    contents: prompt,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -194,12 +208,11 @@ export const autoScheduleEvents = async (syllabus: string, existingEvents: strin
         items: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING },
-            category: { type: Type.STRING },
-            time: { type: Type.STRING },
-            date: { type: Type.STRING }
+            hour: { type: Type.INTEGER },
+            type: { type: Type.STRING },
+            label: { type: Type.STRING }
           },
-          required: ["title", "category", "time", "date"]
+          required: ["hour", "type", "label"]
         }
       }
     }
