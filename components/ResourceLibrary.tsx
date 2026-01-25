@@ -34,7 +34,6 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize local files from localStorage
   const [localFiles, setLocalFiles] = useState<FileItem[]>(() => {
     const saved = localStorage.getItem('scholars_local_files');
     return saved ? JSON.parse(saved) : [
@@ -53,7 +52,6 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     { id: 'd1', name: 'Lecture_Notes_Unit1.pdf', size: '4.5 MB', type: 'pdf', modified: 'Yesterday' },
   ];
 
-  // Persist local files to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('scholars_local_files', JSON.stringify(localFiles));
   }, [localFiles]);
@@ -65,25 +63,19 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (file.type !== 'application/pdf') {
         alert(settings.language === 'BN' ? "শুধুমাত্র PDF ফাইল আপলোড করুন।" : "Please upload PDF files only.");
         return;
       }
-
-      // Create a metadata entry for the library
       const newFile: FileItem = {
         id: Date.now().toString(),
         name: file.name,
         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
         type: 'pdf',
         modified: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
-        url: URL.createObjectURL(file) // Note: This URL is transient for the session
+        url: URL.createObjectURL(file)
       };
-
       setLocalFiles(prev => [...prev, newFile]);
-      
-      // Reset input so the same file can be uploaded again if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -116,25 +108,13 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
           <p className="text-slate-500 dark:text-slate-400 text-lg">Central hub for textbooks and notes.</p>
         </div>
         <div className="flex gap-3 bg-white dark:bg-slate-900 p-2 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
-           <button 
-            onClick={() => setActiveTab('local')}
-            className={`px-6 py-3 rounded-[2rem] text-sm font-black flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'local' ? 'text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-            style={activeTab === 'local' ? { backgroundColor: settings.primaryColor } : {}}
-           >
+           <button onClick={() => setActiveTab('local')} className={`px-6 py-3 rounded-[2rem] text-sm font-black flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'local' ? 'text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`} style={activeTab === 'local' ? { backgroundColor: settings.primaryColor } : {}}>
              <FileIcon className="w-5 h-5" /> Local Vault
            </button>
-           <button 
-            onClick={() => setActiveTab('nctb')}
-            className={`px-6 py-3 rounded-[2rem] text-sm font-black flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'nctb' ? 'text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-            style={activeTab === 'nctb' ? { backgroundColor: settings.primaryColor } : {}}
-           >
+           <button onClick={() => setActiveTab('nctb')} className={`px-6 py-3 rounded-[2rem] text-sm font-black flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'nctb' ? 'text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`} style={activeTab === 'nctb' ? { backgroundColor: settings.primaryColor } : {}}>
              <BookMarked className="w-5 h-5" /> NCTB Textbooks
            </button>
-           <button 
-            onClick={() => setActiveTab('drive')}
-            className={`px-6 py-3 rounded-[2rem] text-sm font-black flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'drive' ? 'text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-            style={activeTab === 'drive' ? { backgroundColor: settings.primaryColor } : {}}
-           >
+           <button onClick={() => setActiveTab('drive')} className={`px-6 py-3 rounded-[2rem] text-sm font-black flex items-center gap-3 transition-all whitespace-nowrap ${activeTab === 'drive' ? 'text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`} style={activeTab === 'drive' ? { backgroundColor: settings.primaryColor } : {}}>
              <Cloud className="w-5 h-5" /> Cloud Drive
            </button>
         </div>
@@ -144,47 +124,17 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
            <div className="relative flex-1 max-w-lg">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder={settings.language === 'BN' ? 'রিসোর্স খুঁজুন...' : 'Search resources...'}
-                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-3xl pl-14 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 dark:text-white"
-              />
+              <input type="text" placeholder={settings.language === 'BN' ? 'রিসোর্স খুঁজুন...' : 'Search resources...'} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-3xl pl-14 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 dark:text-white" />
            </div>
            <div className="flex items-center gap-4">
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
-                 <button 
-                  onClick={() => setView('grid')}
-                  className={`p-3 rounded-xl transition-all ${view === 'grid' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-md' : 'text-slate-400'}`}
-                  style={view === 'grid' ? { color: settings.primaryColor } : {}}
-                 >
-                   <Grid className="w-5 h-5" />
-                 </button>
-                 <button 
-                  onClick={() => setView('list')}
-                  className={`p-3 rounded-xl transition-all ${view === 'list' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-md' : 'text-slate-400'}`}
-                  style={view === 'list' ? { color: settings.primaryColor } : {}}
-                 >
-                   <List className="w-5 h-5" />
-                 </button>
+                 <button onClick={() => setView('grid')} className={`p-3 rounded-xl transition-all ${view === 'grid' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-md' : 'text-slate-400'}`} style={view === 'grid' ? { color: settings.primaryColor } : {}}><Grid className="w-5 h-5" /></button>
+                 <button onClick={() => setView('list')} className={`p-3 rounded-xl transition-all ${view === 'list' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-md' : 'text-slate-400'}`} style={view === 'list' ? { color: settings.primaryColor } : {}}><List className="w-5 h-5" /></button>
               </div>
-
               {activeTab === 'local' && (
                 <>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="application/pdf" 
-                    onChange={handleFileUpload} 
-                  />
-                  <button 
-                    onClick={handleUploadClick}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-[2rem] font-black flex items-center gap-3 shadow-xl transition-all active:scale-95"
-                    style={{ backgroundColor: settings.primaryColor }}
-                  >
-                    <Upload className="w-5 h-5" /> 
-                    {settings.language === 'BN' ? 'ফাইল আপলোড' : 'Upload File'}
-                  </button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="application/pdf" onChange={handleFileUpload} />
+                  <button onClick={handleUploadClick} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-[2rem] font-black flex items-center gap-3 shadow-xl transition-all active:scale-95" style={{ backgroundColor: settings.primaryColor }}><Upload className="w-5 h-5" /> {settings.language === 'BN' ? 'ফাইল আপলোড' : 'Upload File'}</button>
                 </>
               )}
            </div>
@@ -193,37 +143,17 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         <div className="flex-1 p-8">
            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
               {getFiles().map(file => (
-                <div 
-                  key={file.id} 
-                  onClick={() => openPreview(file)}
-                  className="group relative flex flex-col items-center text-center p-8 rounded-[2.5rem] border border-transparent hover:border-slate-50 dark:hover:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer overflow-hidden"
-                >
+                <div key={file.id} onClick={() => openPreview(file)} className="group relative flex flex-col items-center text-center p-8 rounded-[2.5rem] border border-transparent hover:border-slate-50 dark:hover:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer overflow-hidden">
                   <div className="mb-6 relative">
                      {file.type === 'nctb' ? (
-                       <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/30 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <BookMarked className="w-10 h-10 text-emerald-600" />
-                       </div>
+                       <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/30 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform"><BookMarked className="w-10 h-10 text-emerald-600" /></div>
                      ) : (
-                       <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                         <FileText className="w-10 h-10 text-slate-300" />
-                       </div>
+                       <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform"><FileText className="w-10 h-10 text-slate-300" /></div>
                      )}
                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
-                        <div 
-                          className="bg-indigo-600 p-3 rounded-full text-white shadow-2xl transform hover:scale-110 transition-transform" 
-                          style={{ backgroundColor: settings.primaryColor }}
-                          title="Preview"
-                        >
-                          <Eye className="w-5 h-5" />
-                        </div>
+                        <div className="bg-indigo-600 p-3 rounded-full text-white shadow-2xl transform hover:scale-110 transition-transform" style={{ backgroundColor: settings.primaryColor }} title="Preview"><Eye className="w-5 h-5" /></div>
                         {activeTab === 'local' && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setFileToDelete(file); }}
-                            className="bg-rose-500 p-3 rounded-full text-white shadow-2xl transform hover:scale-110 transition-transform"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); setFileToDelete(file); }} className="bg-rose-500 p-3 rounded-full text-white shadow-2xl transform hover:scale-110 transition-transform" title="Delete"><Trash2 className="w-5 h-5" /></button>
                         )}
                       </div>
                   </div>
@@ -235,48 +165,18 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {fileToDelete && (
           <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" 
-              onClick={() => setFileToDelete(null)} 
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-10 shadow-2xl border border-slate-100 dark:border-slate-800"
-            >
+            <motion.div {...({ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } } as any)} className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setFileToDelete(null)} />
+            <motion.div {...({ initial: { opacity: 0, scale: 0.9, y: 20 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.9, y: 20 } } as any)} className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-10 shadow-2xl border border-slate-100 dark:border-slate-800">
               <div className="flex flex-col items-center text-center">
-                <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/30 rounded-full flex items-center justify-center mb-6">
-                  <AlertTriangle className="w-10 h-10 text-rose-500" />
-                </div>
-                <h3 className="text-2xl font-black dark:text-white mb-2">
-                  {settings.language === 'BN' ? 'রিসোর্স মুছে ফেলবেন?' : 'Delete Resource?'}
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-                  {settings.language === 'BN' 
-                    ? `আপনি কি নিশ্চিত যে আপনি "${fileToDelete.name}" মুছতে চান? এটি পুনরুদ্ধার করা যাবে না।`
-                    : `Are you sure you want to remove "${fileToDelete.name}"? This action cannot be undone.`}
-                </p>
+                <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/30 rounded-full flex items-center justify-center mb-6"><AlertTriangle className="w-10 h-10 text-rose-500" /></div>
+                <h3 className="text-2xl font-black dark:text-white mb-2">{settings.language === 'BN' ? 'রিসোর্স মুছে ফেলবেন?' : 'Delete Resource?'}</h3>
+                <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">{settings.language === 'BN' ? `আপনি কি নিশ্চিত যে আপনি "${fileToDelete.name}" মুছতে চান? এটি পুনরুদ্ধার করা যাবে না।` : `Are you sure you want to remove "${fileToDelete.name}"? This action cannot be undone.`}</p>
                 <div className="flex gap-4 w-full">
-                  <button 
-                    onClick={() => setFileToDelete(null)}
-                    className="flex-1 py-4 font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-                  >
-                    {settings.language === 'BN' ? 'বাতিল' : 'Cancel'}
-                  </button>
-                  <button 
-                    onClick={confirmDelete}
-                    className="flex-1 py-4 font-bold text-white bg-rose-500 rounded-2xl shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95"
-                  >
-                    {settings.language === 'BN' ? 'মুছে ফেলুন' : 'Delete File'}
-                  </button>
+                  <button onClick={() => setFileToDelete(null)} className="flex-1 py-4 font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all">{settings.language === 'BN' ? 'বাতিল' : 'Cancel'}</button>
+                  <button onClick={confirmDelete} className="flex-1 py-4 font-bold text-white bg-rose-500 rounded-2xl shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95">{settings.language === 'BN' ? 'মুছে ফেলুন' : 'Delete File'}</button>
                 </div>
               </div>
             </motion.div>
@@ -284,41 +184,19 @@ const ResourceLibrary: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         )}
       </AnimatePresence>
 
-      {/* Preview Modal */}
       <AnimatePresence>
         {previewUrl && (
           <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 md:p-10">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" 
-              onClick={() => setPreviewUrl(null)} 
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative bg-white dark:bg-slate-900 w-full h-full rounded-[3.5rem] overflow-hidden shadow-2xl flex flex-col"
-            >
+            <motion.div {...({ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } } as any)} className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setPreviewUrl(null)} />
+            <motion.div {...({ initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.95 } } as any)} className="relative bg-white dark:bg-slate-900 w-full h-full rounded-[3.5rem] overflow-hidden shadow-2xl flex flex-col">
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                      <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl" style={{ color: settings.primaryColor }}>
-                        <FileText className="w-6 h-6" />
-                      </div>
+                      <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl" style={{ color: settings.primaryColor }}><FileText className="w-6 h-6" /></div>
                       <h3 className="font-black text-xl dark:text-white">Document View</h3>
                   </div>
                   <div className="flex items-center gap-3">
-                    <a 
-                      href={previewUrl} 
-                      download 
-                      className="flex items-center gap-2 px-6 py-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl font-bold transition-all hover:bg-emerald-100"
-                    >
-                      <Download className="w-5 h-5" /> {settings.language === 'BN' ? 'ডাউনলোড' : 'Download'}
-                    </a>
-                    <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-slate-500 hover:text-rose-500 transition-all">
-                      {settings.language === 'BN' ? 'বন্ধ করুন' : 'Close'} <X className="w-5 h-5" />
-                    </button>
+                    <a href={previewUrl} download className="flex items-center gap-2 px-6 py-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl font-bold transition-all hover:bg-emerald-100"><Download className="w-5 h-5" /> {settings.language === 'BN' ? 'ডাউনলোড' : 'Download'}</a>
+                    <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-slate-500 hover:text-rose-500 transition-all">{settings.language === 'BN' ? 'বন্ধ করুন' : 'Close'} <X className="w-5 h-5" /></button>
                   </div>
                 </div>
                 <div className="flex-1 bg-slate-50 dark:bg-slate-950">

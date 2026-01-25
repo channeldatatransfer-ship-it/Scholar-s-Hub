@@ -17,10 +17,12 @@ export interface Topic {
   lastTested?: string;
 }
 
+// Fixed: Added 'completed' property to Chapter interface to support progress tracking fallback when topics are not yet defined.
 export interface Chapter {
   id: string;
   title: string;
   topics: Topic[];
+  completed?: boolean;
 }
 
 export interface Syllabus {
@@ -28,6 +30,14 @@ export interface Syllabus {
   subject: string;
   chapters: Chapter[];
   color: string;
+}
+
+export interface Notebook {
+  id: string;
+  name: string;
+  description: string;
+  sourceIds: string[]; // IDs of notes or resource files
+  dateCreated: string;
 }
 
 export interface AppSettings {
@@ -38,6 +48,11 @@ export interface AppSettings {
   examLevel: ExamLevel;
   academicGroup?: AcademicGroup;
   language: 'EN' | 'BN';
+  focusDurations: {
+    work: number;
+    short: number;
+    long: number;
+  };
 }
 
 export interface Concept {
@@ -80,6 +95,7 @@ export interface Note {
   title: string;
   content: string;
   date: string;
+  tags?: string[];
 }
 
 export interface Resource {

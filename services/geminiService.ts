@@ -1,9 +1,91 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 const MODEL_NAME = 'gemini-3-flash-preview';
 
-// Fix: Implemented generateTemplateFromAi using GoogleGenAI
+export const executeCCode = async (code: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const systemInstruction = `You are a C Compiler simulator for HSC ICT students. 
+  Execute the provided C code and return ONLY the resulting standard output (stdout). 
+  If there are compilation errors, return the error message clearly. 
+  Do not explain the code, just provide the output as if it were a terminal window.`;
+
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: code,
+    config: { systemInstruction }
+  });
+
+  return response.text || "Execution timed out.";
+};
+
+export const generateNotebookGuide = async (sources: string[]) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `Based ONLY on the following source materials, generate a comprehensive study guide.
+  Include: 
+  1. A summary
+  2. 5 Key FAQs
+  3. A glossary of important terms.
+  
+  CRITICAL: Respond in Bengali (Bangla).
+  Sources: ${sources.join("\n\n")}`;
+
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: prompt,
+  });
+
+  return response.text || "";
+};
+
+export const chatWithNotebook = async (message: string, sources: string[], history: any[]) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const systemInstruction = `You are a helpful academic assistant. 
+  Answer questions based primarily on the provided source materials. 
+  If the information is not in the sources, say so but try to help using your general knowledge if appropriate. 
+  Respond in Bengali (Bangla).
+  
+  SOURCES:
+  ${sources.join("\n\n")}`;
+
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: [...history, { role: 'user', parts: [{ text: message }] }],
+    config: { systemInstruction }
+  });
+  
+  return response.text || "";
+};
+
+export const generateAudioOverview = async (content: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `TTS the following conversational discussion about this academic material between two podcasters, Joe and Jane. 
+  They should sound excited and explain the concepts simply for a student.
+  Joe: Hey Jane, did you see this chapter on ${content.substring(0, 50)}?
+  Jane: I did! It's actually really fascinating how it works...
+  
+  Continue the dialogue for about 200 words summarizing the main points.
+  The dialogue should be in English but can use Bengali terms for clarity.`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-preview-tts",
+    contents: [{ parts: [{ text: prompt }] }],
+    config: {
+      responseModalities: [Modality.AUDIO],
+      speechConfig: {
+        multiSpeakerVoiceConfig: {
+          speakerVoiceConfigs: [
+            { speaker: 'Joe', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+            { speaker: 'Jane', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } }
+          ]
+        }
+      }
+    }
+  });
+
+  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+};
+
 export const generateTemplateFromAi = async (prompt: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const systemInstruction = `You are a curriculum expert for Bangladeshi students (NCTB). 
@@ -53,7 +135,6 @@ export const generateTemplateFromAi = async (prompt: string) => {
   return JSON.parse(response.text || '{}');
 };
 
-// Fix: Implemented identifyConceptRelationships using GoogleGenAI
 export const identifyConceptRelationships = async (concepts: any[]) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const conceptTitles = concepts.map(c => c.title).join(', ');
@@ -86,7 +167,6 @@ export const identifyConceptRelationships = async (concepts: any[]) => {
   return JSON.parse(response.text || '[]');
 };
 
-// Fix: Implemented getStudyAdvise using GoogleGenAI
 export const getStudyAdvise = async (syllabusData: string, focusData: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
@@ -99,7 +179,6 @@ export const getStudyAdvise = async (syllabusData: string, focusData: string) =>
   return response.text || "পড়াশোনা চালিয়ে যাও, স্কলার!";
 };
 
-// Fix: Implemented autoScheduleEvents using GoogleGenAI
 export const autoScheduleEvents = async (syllabus: string, existingEvents: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
@@ -128,7 +207,6 @@ export const autoScheduleEvents = async (syllabus: string, existingEvents: strin
   return JSON.parse(response.text || '[]');
 };
 
-// Fix: Implemented generateQuizFromContent using GoogleGenAI
 export const generateQuizFromContent = async (content: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
@@ -155,7 +233,6 @@ export const generateQuizFromContent = async (content: string) => {
   return JSON.parse(response.text || '[]');
 };
 
-// Fix: Implemented simplifyContent using GoogleGenAI
 export const simplifyContent = async (content: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
@@ -166,7 +243,6 @@ export const simplifyContent = async (content: string) => {
   return response.text || "";
 };
 
-// Fix: Implemented scholarChat using GoogleGenAI
 export const scholarChat = async (message: string, history: { role: 'user' | 'model'; parts: { text: string }[] }[] = []) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const systemInstruction = `You are Scholar AI, an academic expert for Bangladeshi students (NCTB). 
@@ -180,31 +256,53 @@ export const scholarChat = async (message: string, history: { role: 'user' | 'mo
   return response.text || "দুঃখিত, আমি এখন উত্তর দিতে পারছি না।";
 };
 
-// Fix: Implemented fetchSyllabusForLevel using GoogleGenAI with Google Search
 export const fetchSyllabusForLevel = async (level: string, group: string = 'Science') => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Act as an NCTB expert. Fetch the ${level} syllabus for ${group} group. 
-  CRITICAL: Return everything (subjects, chapters, topics) in Bengali.
-  Format: [{"subject": "বিষয়", "chapters": [{"title": "অধ্যায়", "topics": ["টপিক"]}]}]`;
+  const prompt = `Act as an NCTB (National Curriculum and Textbook Board, Bangladesh) expert. 
+  Find the latest official ${level} syllabus for the ${group} academic group in Bangladesh. 
+  CRITICAL: Return subject names, chapter names, and a list of specific topics for each chapter.
+  IMPORTANT: Return ALL text content (subjects, chapters, topics) in Bengali (Bangla).
+  Your response must be a valid JSON array of objects.
+  Format: [{"subject": "বিষয়", "chapters": [{"title": "অধ্যায়", "topics": ["টপিক ১", "টপিক ২"]}]}]`;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
-      config: { tools: [{ googleSearch: {} }] },
+      config: { 
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              subject: { type: Type.STRING },
+              chapters: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    topics: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  },
+                  required: ["title", "topics"]
+                }
+              }
+            },
+            required: ["subject", "chapters"]
+          }
+        }
+      }
     });
-    const text = response.text || '';
-    const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(text);
+
+    return JSON.parse(response.text || '[]');
   } catch (e) {
+    console.error("Syllabus fetch error:", e);
     return null;
   }
 };
 
-/**
- * Fix: Added missing export for generateConceptImage.
- * Uses gemini-2.5-flash-image to create an educational illustration for concepts in the vault.
- */
 export const generateConceptImage = async (title: string, content: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({

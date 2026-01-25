@@ -1,274 +1,246 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Wand2, Trash2, Clock, MapPin, Sparkles, RefreshCw } from 'lucide-react';
-import { AppSettings, CalendarEvent } from '../types';
-import { autoScheduleEvents } from '../services/geminiService';
+import { 
+  Calendar as CalendarIcon, 
+  Clock, 
+  Plus, 
+  Trash2, 
+  Coffee, 
+  Moon, 
+  BookOpen,
+  CheckCircle2,
+  AlertCircle,
+  Circle,
+  X,
+  ListTodo
+} from 'lucide-react';
+import { AppSettings, Task } from '../types';
+
+interface RoutineSlot {
+  hour: number;
+  type: 'study' | 'sleep' | 'break' | 'none';
+  label: string;
+}
 
 const Planner: React.FC<{ settings: AppSettings }> = ({ settings }) => {
-  const toLocalDateString = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
+  const isBN = settings.language === 'BN';
+  
+  // Tasks State
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem('scholars_tasks');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
-  const [viewDate, setViewDate] = useState(new Date());
-  const [events, setEvents] = useState<CalendarEvent[]>(() => {
-    const saved = localStorage.getItem('scholars_events');
-    const today = toLocalDateString(new Date());
-    return saved ? JSON.parse(saved) : [
-      { id: '1', title: 'Calculus Final Prep', date: today, time: '10:00 AM', category: 'Math' },
-      { id: '2', title: 'Biology Mock Test', date: today, time: '02:00 PM', category: 'Science' },
-    ];
+  // Routine State
+  const [routine, setRoutine] = useState<RoutineSlot[]>(() => {
+    const saved = localStorage.getItem('scholars_daily_routine');
+    if (saved) return JSON.parse(saved);
+    return Array.from({ length: 24 }, (_, i) => ({
+      hour: i,
+      type: 'none',
+      label: ''
+    }));
   });
 
-  const [showAddEvent, setShowAddEvent] = useState(false);
-  const [isAiScheduling, setIsAiScheduling] = useState(false);
-  const [newEvent, setNewEvent] = useState({ title: '', category: 'General', time: '09:00' });
+  const [activeTab, setActiveTab] = useState<'routine' | 'tasks'>('routine');
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    localStorage.setItem('scholars_events', JSON.stringify(events));
-  }, [events]);
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
+  useEffect(() => {
+    localStorage.setItem('scholars_daily_routine', JSON.stringify(routine));
+  }, [routine]);
 
-  const month = viewDate.getMonth();
-  const year = viewDate.getFullYear();
-  const monthName = viewDate.toLocaleString('default', { month: 'long' });
+  useEffect(() => {
+    localStorage.setItem('scholars_tasks', JSON.stringify(tasks));
+  }, [tasks]);
 
-  const handleAiSchedule = async () => {
-    setIsAiScheduling(true);
-    try {
-      const syllabus = localStorage.getItem('scholars_syllabuses_v2') || '[]';
-      const existing = JSON.stringify(events);
-      const suggested = await autoScheduleEvents(syllabus, existing);
-      
-      if (suggested && suggested.length > 0) {
-        const mapped = suggested.map((ev: any) => ({
-          ...ev,
-          id: `ai-${Date.now()}-${Math.random()}`
-        }));
-        setEvents(prev => [...prev, ...mapped]);
-        alert(settings.language === 'BN' ? 'এআই ৩টি নতুন স্টাডি সেশন আপনার প্ল্যানারে যুক্ত করেছে!' : 'AI has added 3 new study sessions to your planner!');
-      }
-    } catch (e) {
-      alert("AI was unable to generate a schedule right now.");
-    } finally {
-      setIsAiScheduling(false);
-    }
+  const updateSlot = (hour: number, type: RoutineSlot['type']) => {
+    setRoutine(prev => prev.map(slot => 
+      slot.hour === hour ? { ...slot, type, label: type === 'study' ? 'Study session' : type === 'break' ? 'Break' : type === 'sleep' ? 'Sleep' : '' } : slot
+    ));
   };
 
-  const handleAddEvent = () => {
-    if (!newEvent.title) return;
-    const ev: CalendarEvent = {
+  const addTask = () => {
+    if (!newTaskTitle.trim()) return;
+    const task: Task = {
       id: Date.now().toString(),
-      title: newEvent.title,
-      category: newEvent.category,
-      time: newEvent.time,
-      date: toLocalDateString(viewDate)
+      title: newTaskTitle,
+      completed: false
     };
-    setEvents([...events, ev]);
-    setShowAddEvent(false);
-    setNewEvent({ title: '', category: 'General', time: '09:00' });
+    setTasks([task, ...tasks]);
+    setNewTaskTitle('');
   };
 
-  const deleteEvent = (id: string) => {
-    setEvents(events.filter(e => e.id !== id));
+  const toggleTask = (id: string) => {
+    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
 
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const calendarDays = [];
-  const totalDaysCount = daysInMonth(month, year);
-  const startDay = firstDayOfMonth(month, year);
+  const deleteTask = (id: string) => {
+    setTasks(tasks.filter(t => t.id !== id));
+  };
 
-  for (let i = 0; i < startDay; i++) calendarDays.push(null);
-  for (let i = 1; i <= totalDaysCount; i++) calendarDays.push(i);
+  const currentHour = currentTime.getHours();
+  const currentSlot = routine.find(s => s.hour === currentHour);
 
-  const selectedDateStr = toLocalDateString(viewDate);
-  const dayEvents = events.filter(e => e.date === selectedDateStr);
+  const formatHour = (h: number) => {
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:00 ${period}`;
+  };
+
+  const stats = useMemo(() => {
+    const study = routine.filter(s => s.type === 'study').length;
+    const sleep = routine.filter(s => s.type === 'sleep').length;
+    const breaks = routine.filter(s => s.type === 'break').length;
+    return { study, sleep, breaks };
+  }, [routine]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20">
+      <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-3xl font-black dark:text-white">Study Planner</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-lg">Your roadmap to academic excellence.</p>
+          <h1 className="text-4xl font-black dark:text-white tracking-tight flex items-center gap-4">
+            <CalendarIcon className="w-12 h-12 text-indigo-600" />
+            {isBN ? 'স্টাডি প্ল্যানার' : 'Smart Planner'}
+          </h1>
+          <p className="text-slate-500 font-medium">Structure your day and manage micro-tasks effectively.</p>
         </div>
-        <div className="flex gap-3">
+        
+        <div className="flex bg-white dark:bg-slate-900 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
            <button 
-            onClick={handleAiSchedule}
-            disabled={isAiScheduling}
-            className={`px-8 py-4 rounded-[2rem] font-bold flex items-center gap-2 transition-all border border-indigo-100 dark:border-indigo-800 ${isAiScheduling ? 'opacity-70 animate-pulse' : 'hover:bg-indigo-100 shadow-lg'}`}
-            style={{ color: settings.primaryColor, backgroundColor: `${settings.primaryColor}1A`, borderColor: `${settings.primaryColor}33` }}
+             onClick={() => setActiveTab('routine')}
+             className={`px-8 py-3 rounded-2xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'routine' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-indigo-600'}`}
            >
-             {isAiScheduling ? <RefreshCw className="animate-spin" /> : <Wand2 className="w-5 h-5" />}
-             {isAiScheduling ? 'Optimizing...' : 'AI Auto-Schedule'}
+             <Clock size={18} /> Routine
            </button>
            <button 
-            onClick={() => setShowAddEvent(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-[2rem] font-bold flex items-center gap-2 shadow-2xl transition-all active:scale-95"
-            style={{ backgroundColor: settings.primaryColor }}
+             onClick={() => setActiveTab('tasks')}
+             className={`px-8 py-3 rounded-2xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'tasks' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-indigo-600'}`}
            >
-             <Plus className="w-5 h-5" /> New Event
+             <ListTodo size={18} /> Tasks
            </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-3 bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between mb-10">
-            <h2 className="text-3xl font-black dark:text-white">{monthName} {year}</h2>
-            <div className="flex gap-4">
-              <button onClick={() => setViewDate(new Date(year, month - 1, 1))} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors"><ChevronLeft /></button>
-              <button onClick={() => setViewDate(new Date(year, month + 1, 1))} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-colors"><ChevronRight /></button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-7 gap-px mb-6">
-            {days.map(day => (
-              <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] py-4">{day}</div>
-            ))}
-          </div>
-          
-          <div className="grid grid-cols-7 gap-4">
-            {calendarDays.map((day, idx) => {
-              if (day === null) return <div key={`empty-${idx}`} />;
-              
-              const dateObj = new Date(year, month, day);
-              const currentDayStr = toLocalDateString(dateObj);
-              const isSelected = selectedDateStr === currentDayStr;
-              const hasEvents = events.some(e => e.date === currentDayStr);
-              
-              return (
-                <div 
-                  key={day} 
-                  onClick={() => setViewDate(dateObj)}
-                  className={`
-                    aspect-square p-4 rounded-3xl border flex flex-col items-end transition-all cursor-pointer group relative
-                    ${isSelected ? 'shadow-2xl ring-4 ring-indigo-500/10' : 'border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'}
-                  `}
-                  style={isSelected ? { backgroundColor: `${settings.primaryColor}1A`, borderColor: settings.primaryColor } : {}}
-                >
-                  <span className={`text-sm font-black transition-colors ${isSelected ? 'text-indigo-600' : 'text-slate-400 dark:text-slate-600'}`} style={isSelected ? { color: settings.primaryColor } : {}}>{day}</span>
-                  {hasEvents && (
-                    <div className="mt-auto flex gap-1">
-                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: settings.primaryColor }} />
+      {activeTab === 'routine' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+           <div className="lg:col-span-3 space-y-6">
+              <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
+                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                   <AlertCircle size={14} /> Right Now
+                 </h3>
+                 <div className="p-6 rounded-[2rem] bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800">
+                    <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase mb-1">{formatHour(currentHour)}</p>
+                    <div className="mt-4 flex items-center gap-3">
+                       <div className={`p-2 rounded-lg ${currentSlot?.type === 'study' ? 'bg-emerald-500' : currentSlot?.type === 'sleep' ? 'bg-blue-500' : 'bg-orange-500'} text-white`}>
+                          {currentSlot?.type === 'study' ? <BookOpen size={16} /> : currentSlot?.type === 'sleep' ? <Moon size={16} /> : <Coffee size={16} />}
+                       </div>
+                       <span className="font-bold dark:text-white capitalize">{currentSlot?.type === 'none' ? 'Free Time' : currentSlot?.type}</span>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-           <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm h-full flex flex-col">
-              <div className="mb-8">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Timeline</h3>
-                <h2 className="text-xl font-black dark:text-white">{viewDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</h2>
+                 </div>
               </div>
-              
-              <div className="flex-1 space-y-4 overflow-y-auto">
-                <AnimatePresence>
-                {dayEvents.map(event => (
-                  <motion.div 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    key={event.id} 
-                    className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 relative group"
-                  >
-                    {event.id.startsWith('ai-') && (
-                      <div className="absolute -top-2 -right-2 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
-                        <Sparkles size={12} />
+              <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
+                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Efficiency Stats</h3>
+                 <div className="space-y-4">
+                    <div className="flex justify-between text-sm font-bold text-slate-500"><span>Study</span><span className="text-emerald-600">{stats.study}h</span></div>
+                    <div className="flex justify-between text-sm font-bold text-slate-500"><span>Sleep</span><span className="text-blue-600">{stats.sleep}h</span></div>
+                    <div className="flex justify-between text-sm font-bold text-slate-500"><span>Breaks</span><span className="text-orange-600">{stats.breaks}h</span></div>
+                 </div>
+              </div>
+           </div>
+
+           <div className="lg:col-span-9 bg-white dark:bg-slate-900 rounded-[4rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-10 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 flex items-center justify-between">
+                 <span className="font-black text-lg dark:text-white uppercase tracking-tighter">Your 24-Hour Cycle</span>
+                 <div className="flex gap-2">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Study</div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Sleep</div>
+                 </div>
+              </div>
+              <div className="flex-1 overflow-y-auto max-h-[700px] p-6 no-scrollbar">
+                 <div className="grid grid-cols-1 gap-2">
+                    {routine.map((slot) => (
+                      <div key={slot.hour} className={`flex items-center gap-6 p-4 rounded-3xl transition-all border ${slot.hour === currentHour ? 'bg-indigo-50/30 border-indigo-200' : 'bg-white dark:bg-slate-800/30 border-slate-50 dark:border-slate-800'}`}>
+                         <div className="w-24 text-right"><span className="text-sm font-black text-slate-400">{formatHour(slot.hour)}</span></div>
+                         <div className="flex-1 flex gap-2">
+                            {(['study', 'sleep', 'break', 'none'] as const).map(t => (
+                              <button key={t} onClick={() => updateSlot(slot.hour, t)} className={`flex-1 py-3 rounded-2xl text-[9px] font-black uppercase transition-all ${slot.type === t ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-700 text-slate-400'}`}>
+                                {t}
+                              </button>
+                            ))}
+                         </div>
                       </div>
-                    )}
-                    <button 
-                      onClick={() => deleteEvent(event.id)}
-                      className="absolute top-4 right-4 p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: settings.primaryColor }}>{event.category}</p>
-                    <p className="font-bold text-slate-800 dark:text-white mb-4 leading-tight">{event.title}</p>
-                    <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                       <span className="flex items-center gap-1"><Clock size={12} /> {event.time}</span>
-                       <span className="flex items-center gap-1"><MapPin size={12} /> {event.id.startsWith('ai-') ? 'Suggested Slot' : 'Study Hall'}</span>
-                    </div>
-                  </motion.div>
-                ))}
-                </AnimatePresence>
-                {dayEvents.length === 0 && (
-                  <div className="py-20 text-center flex flex-col items-center justify-center space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-                      <CalendarIcon size={24} className="text-slate-300" />
-                    </div>
-                    <p className="text-sm font-bold text-slate-400 max-w-[150px]">No events for this date. Time to rest?</p>
-                  </div>
-                )}
+                    ))}
+                 </div>
               </div>
-           </section>
+           </div>
         </div>
-      </div>
-
-      <AnimatePresence>
-      {showAddEvent && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setShowAddEvent(false)} />
-           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3.5rem] p-10 shadow-2xl">
-              <h3 className="text-3xl font-black mb-10 dark:text-white">New Study Event</h3>
-              <div className="space-y-6">
-                 <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Title</label>
-                   <input 
-                    autoFocus
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold dark:text-white focus:ring-4 focus:ring-indigo-500/10"
-                    placeholder="Revision Session, Test..."
-                    value={newEvent.title}
-                    onChange={e => setNewEvent({...newEvent, title: e.target.value})}
-                   />
-                 </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</label>
-                      <input 
-                        type="time"
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold dark:text-white"
-                        value={newEvent.time}
-                        onChange={e => setNewEvent({...newEvent, time: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</label>
-                      <select 
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold dark:text-white appearance-none"
-                        value={newEvent.category}
-                        onChange={e => setNewEvent({...newEvent, category: e.target.value})}
-                      >
-                         <option>General</option>
-                         <option>Math</option>
-                         <option>Science</option>
-                         <option>Languages</option>
-                      </select>
-                    </div>
-                 </div>
-                 <div className="flex gap-4 pt-4">
-                    <button onClick={() => setShowAddEvent(false)} className="flex-1 py-5 font-bold text-slate-400">Cancel</button>
-                    <button 
-                      onClick={handleAddEvent}
-                      className="flex-[2] py-5 rounded-[2rem] text-white font-black text-lg shadow-xl"
-                      style={{ backgroundColor: settings.primaryColor }}
-                    >
-                      Save Event
-                    </button>
-                 </div>
+      ) : (
+        <div className="max-w-4xl mx-auto space-y-8">
+           <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-6 items-center">
+              <div className="flex-1 w-full relative">
+                 <input 
+                   type="text" 
+                   placeholder={isBN ? "নতুন কাজ যোগ করুন..." : "Add a new task..."}
+                   className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold focus:ring-4 focus:ring-indigo-500/10 dark:text-white"
+                   value={newTaskTitle}
+                   onChange={e => setNewTaskTitle(e.target.value)}
+                   onKeyDown={e => e.key === 'Enter' && addTask()}
+                 />
               </div>
-           </motion.div>
+              <button 
+                onClick={addTask}
+                className="px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:scale-105 transition-all"
+              >
+                Add Task
+              </button>
+           </div>
+
+           <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center">
+                 <h3 className="font-black text-lg dark:text-white uppercase">{isBN ? 'আজকের কাজসমূহ' : 'Tasks to Complete'}</h3>
+                 <span className="bg-slate-100 dark:bg-slate-800 px-4 py-1.5 rounded-full text-xs font-black text-slate-500">{tasks.filter(t => !t.completed).length} Pending</span>
+              </div>
+              <div className="p-4 space-y-3 min-h-[400px]">
+                 <AnimatePresence initial={false}>
+                    {tasks.map(task => (
+                      <motion.div 
+                        key={task.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        className={`flex items-center justify-between p-6 rounded-3xl border transition-all ${task.completed ? 'bg-slate-50/50 border-slate-100 dark:bg-slate-800/30' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm hover:border-indigo-200'}`}
+                      >
+                         <div className="flex items-center gap-6 flex-1 cursor-pointer" onClick={() => toggleTask(task.id)}>
+                            <div className={`transition-colors ${task.completed ? 'text-emerald-500' : 'text-slate-300'}`}>
+                               {task.completed ? <CheckCircle2 size={28} /> : <Circle size={28} />}
+                            </div>
+                            <span className={`text-lg font-bold transition-all ${task.completed ? 'line-through text-slate-300' : 'text-slate-700 dark:text-slate-200'}`}>
+                               {task.title}
+                            </span>
+                         </div>
+                         <button onClick={() => deleteTask(task.id)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all">
+                            <X size={20} />
+                         </button>
+                      </motion.div>
+                    ))}
+                 </AnimatePresence>
+                 {tasks.length === 0 && (
+                   <div className="py-20 flex flex-col items-center opacity-30 text-slate-500">
+                      <ListTodo size={64} className="mb-4" />
+                      <p className="font-bold">No tasks added yet.</p>
+                   </div>
+                 )}
+              </div>
+           </div>
         </div>
       )}
-      </AnimatePresence>
     </div>
   );
 };

@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
-import { AppSettings, ExamLevel } from '../types';
-import { Moon, Sun, Palette, Database, RefreshCw, Trash2, Check, Cloud, Key, BookOpen, Globe } from 'lucide-react';
+import { AppSettings, ExamLevel, AcademicGroup } from '../types';
+import { Moon, Sun, Palette, Database, RefreshCw, Trash2, Check, Cloud, Key, BookOpen, Globe, GraduationCap, Timer } from 'lucide-react';
 
 interface SettingsProps {
   settings: AppSettings;
@@ -28,6 +29,12 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
     { id: 'General', label: isBN ? 'অন্যান্য/সাধারণ' : 'Other/General' },
   ];
 
+  const GROUPS: { id: AcademicGroup; label: string }[] = [
+    { id: 'Science', label: isBN ? 'বিজ্ঞান' : 'Science' },
+    { id: 'Commerce', label: isBN ? 'ব্যবসায় শিক্ষা' : 'Commerce' },
+    { id: 'Humanities', label: isBN ? 'মানবিক' : 'Humanities' },
+  ];
+
   const clearData = () => {
     if (confirm(isBN ? "আপনি কি নিশ্চিত যে আপনি সমস্ত ডেটা মুছে ফেলতে চান? এটি পুনরুদ্ধার করা যাবে না।" : "Are you sure you want to clear all data? This cannot be undone.")) {
       localStorage.clear();
@@ -37,6 +44,16 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
 
   const handleUpdate = (updates: Partial<AppSettings>) => {
     onUpdate({ ...settings, ...updates });
+  };
+
+  const handleDurationUpdate = (key: keyof AppSettings['focusDurations'], val: string) => {
+    const num = parseInt(val) || 1;
+    handleUpdate({
+      focusDurations: {
+        ...settings.focusDurations,
+        [key]: Math.max(1, Math.min(120, num))
+      }
+    });
   };
 
   return (
@@ -52,7 +69,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
             <BookOpen className="w-6 h-6" style={{ color: settings.primaryColor }} /> {isBN ? 'একাডেমিক প্রোফাইল' : 'Academic Profile'}
           </h2>
           
-          <div className="space-y-6">
+          <div className="space-y-8">
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">{isBN ? 'বর্তমান পরীক্ষার লক্ষ্য' : 'Current Exam Focus'}</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -71,6 +88,26 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
                        style={settings.examLevel === level.id ? { color: settings.primaryColor } : {}}>
                       {level.label}
                     </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">{isBN ? 'বিভাগ' : 'Academic Group'}</label>
+              <div className="flex bg-slate-50 dark:bg-slate-800 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-700">
+                {GROUPS.map((group) => (
+                  <button
+                    key={group.id}
+                    onClick={() => handleUpdate({ academicGroup: group.id })}
+                    className={`flex-1 px-6 py-3 rounded-[1.5rem] text-xs font-black uppercase tracking-widest transition-all ${
+                      settings.academicGroup === group.id 
+                        ? 'text-white shadow-xl' 
+                        : 'text-slate-400 hover:text-indigo-600'
+                    }`}
+                    style={settings.academicGroup === group.id ? { backgroundColor: settings.primaryColor } : {}}
+                  >
+                    {group.label}
                   </button>
                 ))}
               </div>
@@ -101,6 +138,54 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* New Focus Timer Settings Section */}
+        <section className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+          <h2 className="text-xl font-black mb-8 flex items-center gap-3 dark:text-white">
+            <Timer className="w-6 h-6" style={{ color: settings.primaryColor }} /> {isBN ? 'ফোকাস টাইমার সেটিংস' : 'Focus Timer Intervals'}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isBN ? 'পড়ার সময়' : 'Work Session'}</label>
+              <div className="relative flex items-center">
+                <input 
+                  type="number" 
+                  value={settings.focusDurations.work}
+                  onChange={(e) => handleDurationUpdate('work', e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold dark:text-white focus:ring-2 focus:ring-indigo-500/20 shadow-inner pr-12"
+                />
+                <span className="absolute right-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">MIN</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isBN ? 'ছোট বিরতি' : 'Short Break'}</label>
+              <div className="relative flex items-center">
+                <input 
+                  type="number" 
+                  value={settings.focusDurations.short}
+                  onChange={(e) => handleDurationUpdate('short', e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold dark:text-white focus:ring-2 focus:ring-indigo-500/20 shadow-inner pr-12"
+                />
+                <span className="absolute right-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">MIN</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isBN ? 'বড় বিরতি' : 'Long Break'}</label>
+              <div className="relative flex items-center">
+                <input 
+                  type="number" 
+                  value={settings.focusDurations.long}
+                  onChange={(e) => handleDurationUpdate('long', e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 font-bold dark:text-white focus:ring-2 focus:ring-indigo-500/20 shadow-inner pr-12"
+                />
+                <span className="absolute right-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">MIN</span>
+              </div>
+            </div>
+          </div>
+          <p className="mt-6 text-xs text-slate-500 italic font-medium">
+            {isBN ? '* টাইমার চলাকালীন পরিবর্তনগুলো সরাসরি প্রভাব ফেলবে না।' : '* Changes won\'t reset an active session currently in progress.'}
+          </p>
         </section>
 
         <section className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -139,7 +224,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
                       style={{ backgroundColor: preset.color }}
                     >
                       {settings.primaryColor === preset.color && (
-                        <motion.div layoutId="check" className="text-white bg-white/20 p-2 rounded-full backdrop-blur-sm">
+                        <motion.div {...({ layoutId: "check" } as any)} className="text-white bg-white/20 p-2 rounded-full backdrop-blur-sm">
                           <Check className="w-6 h-6" />
                         </motion.div>
                       )}

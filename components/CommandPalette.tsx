@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, LayoutDashboard, Layers, FileText, ClipboardCheck, Timer, Settings, Calendar, Zap, Library, BrainCircuit } from 'lucide-react';
+import { Search, LayoutDashboard, Layers, FileText, ClipboardCheck, Timer, Settings, Calendar, Zap, Library, BrainCircuit, Code2 } from 'lucide-react';
 import { AppSettings } from '../types';
 
 const CommandPalette: React.FC<{ settings: AppSettings }> = ({ settings }) => {
@@ -13,6 +14,8 @@ const CommandPalette: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const commands = [
     { name: isBN ? 'ড্যাশবোর্ড' : 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: isBN ? 'সিলেবাস ট্র্যাকার' : 'Syllabus Tracker', path: '/syllabus', icon: ClipboardCheck },
+    { name: isBN ? 'ব্লুপ্রিন্ট হাব' : 'Blueprint Hub', path: '/blueprints', icon: Library },
+    { name: isBN ? 'কোড রানার' : 'Code Runner', path: '/coderunner', icon: Code2 },
     { name: isBN ? 'স্টাডি প্ল্যানার' : 'Study Planner', path: '/planner', icon: Calendar },
     { name: isBN ? 'লাইব্রেরি' : 'Library', path: '/resources', icon: Library },
     { name: isBN ? 'ফ্ল্যাশকার্ড' : 'Flashcards', path: '/flashcards', icon: Layers },
@@ -48,16 +51,12 @@ const CommandPalette: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       {isOpen && (
         <div className="fixed inset-0 z-[2000] flex items-start justify-center pt-[15vh] px-4">
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            {...({ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } } as any)}
             className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            {...({ initial: { opacity: 0, scale: 0.95, y: -20 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: -20 } } as any)}
             className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
           >
             <div className="flex items-center p-6 border-b dark:border-slate-800">

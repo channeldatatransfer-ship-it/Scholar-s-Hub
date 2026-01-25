@@ -15,7 +15,11 @@ import {
   GraduationCap,
   ClipboardCheck,
   Zap,
-  LayoutTemplate
+  LayoutTemplate,
+  BookMarked,
+  Code2,
+  Calculator,
+  TrendingUp
 } from 'lucide-react';
 import { Syllabus, AppSettings } from '../types';
 
@@ -23,6 +27,7 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [progress, setProgress] = useState(0);
   const location = useLocation();
+  const isBN = settings.language === 'BN';
 
   useEffect(() => {
     const calculateProgress = () => {
@@ -49,17 +54,17 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   }, []);
 
   const navItems = [
-    { name: settings.language === 'BN' ? 'ড্যাশবোর্ড' : 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: settings.language === 'BN' ? 'ব্লুপ্রিন্ট' : 'Blueprints', path: '/blueprints', icon: LayoutTemplate },
-    { name: settings.language === 'BN' ? 'সিলেবাস' : 'Syllabus', path: '/syllabus', icon: ClipboardCheck },
-    { name: settings.language === 'BN' ? 'প্ল্যানার' : 'Planner', path: '/planner', icon: Calendar },
-    { name: settings.language === 'BN' ? 'লাইব্রেরি' : 'Library', path: '/resources', icon: Library },
-    { name: settings.language === 'BN' ? 'ফ্ল্যাশকার্ড' : 'Flashcards', path: '/flashcards', icon: Layers },
-    { name: settings.language === 'BN' ? 'ভল্ট' : 'Vault', path: '/vault', icon: Zap },
-    { name: settings.language === 'BN' ? 'নোটস' : 'Notes', path: '/notes', icon: FileText },
-    { name: settings.language === 'BN' ? 'কুইজ' : 'Quiz AI', path: '/quiz', icon: BrainCircuit },
-    { name: settings.language === 'BN' ? 'টাইমার' : 'Focus', path: '/timer', icon: Timer },
-    { name: settings.language === 'BN' ? 'সেটিংস' : 'Settings', path: '/settings', icon: SettingsIcon },
+    { name: isBN ? 'ড্যাশবোর্ড' : 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: isBN ? 'এনালিটিক্স' : 'Analytics', path: '/analytics', icon: TrendingUp },
+    { name: isBN ? 'সিলেবাস' : 'Syllabus', path: '/syllabus', icon: ClipboardCheck },
+    { name: isBN ? 'জিপিএ' : 'GPA Calc', path: '/gpa', icon: Calculator },
+    { name: isBN ? 'প্ল্যানার' : 'Planner', path: '/planner', icon: Calendar },
+    { name: isBN ? 'লাইব্রেরি' : 'Library', path: '/resources', icon: Library },
+    { name: isBN ? 'ফ্ল্যাশকার্ড' : 'Flashcards', path: '/flashcards', icon: Layers },
+    { name: isBN ? 'নোটবুক' : 'Notebooks', path: '/notebooks', icon: BookMarked },
+    { name: isBN ? 'কুইজ এআই' : 'Quiz AI', path: '/quiz', icon: BrainCircuit },
+    { name: isBN ? 'টাইমার' : 'Focus', path: '/timer', icon: Timer },
+    { name: isBN ? 'সেটিংস' : 'Settings', path: '/settings', icon: SettingsIcon },
   ];
 
   return (
@@ -103,7 +108,7 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               style={isActive && !settings.darkMode ? { color: settings.primaryColor } : {}}
             >
               <Icon className={`w-6 h-6 shrink-0 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-              {!collapsed && <span className="font-medium whitespace-nowrap">{item.name}</span>}
+              {!collapsed && <span className="font-medium whitespace-nowrap text-sm">{item.name}</span>}
             </Link>
           );
         })}
@@ -119,14 +124,14 @@ const Sidebar: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
       {!collapsed && (
         <div className="absolute bottom-8 left-6 right-6 p-4 glass-card rounded-2xl">
-          <p className="text-xs text-white/70 mb-2 uppercase tracking-widest font-bold">Overall Progress</p>
+          <p className="text-[9px] text-white/70 mb-2 uppercase tracking-widest font-bold">Academic Progress</p>
           <div className="w-full bg-white/20 h-2 rounded-full mb-2">
             <div 
               className="bg-white h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(255,255,255,0.5)]"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
-          <p className="text-xs text-white">{progress}% Syllabus Done</p>
+          <p className="text-[10px] text-white font-black">{progress}% Completed</p>
         </div>
       )}
     </aside>

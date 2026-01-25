@@ -1,25 +1,22 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, 
   Pause, 
   RotateCcw, 
   Volume2, 
-  CloudRain, 
-  TreePine, 
-  Wind, 
-  BookOpen, 
   VolumeX,
-  Volume1,
   Coffee,
   Brain,
-  Sparkles,
-  Settings as SettingsIcon,
-  Check,
-  X
+  Zap,
+  CheckCircle2,
+  Target,
+  Maximize2,
+  Minimize2,
+  Waves
 } from 'lucide-react';
-import { AppSettings, Syllabus, FocusLog } from '../types';
+import { AppSettings, Syllabus, FocusLog, Task } from '../types';
 
 const AMBIENT_URLS = {
   rain: 'https://assets.mixkit.co/active_storage/sfx/2443/2443-preview.mp3',
@@ -27,54 +24,35 @@ const AMBIENT_URLS = {
   white: 'https://assets.mixkit.co/active_storage/sfx/2355/2355-preview.mp3'
 };
 
-const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
+const FocusTimer: React.FC<{ settings: AppSettings, onUpdate: (updates: Partial<AppSettings>) => void }> = ({ settings, onUpdate }) => {
   const isBN = settings.language === 'BN';
-  
-  // Custom Durations State
-  const [durations, setDurations] = useState(() => {
-    const saved = localStorage.getItem('scholars_focus_settings');
-    return saved ? JSON.parse(saved) : { work: 25, short: 5, long: 15 };
-  });
+  const durations = settings.focusDurations;
 
-  // Timer State
   const [mode, setMode] = useState<'work' | 'short' | 'long'>('work');
   const [timeLeft, setTimeLeft] = useState(durations[mode] * 60);
   const [isActive, setIsActive] = useState(false);
+  const [sessionsCompleted, setSessionsCompleted] = useState(0);
+  const [isZenMode, setIsZenMode] = useState(false);
   
-  // UI State
-  const [showSettings, setShowSettings] = useState(false);
-  const [tempDurations, setTempDurations] = useState(durations);
-  
-  // Audio State
   const [ambientSound, setAmbientSound] = useState<'none' | 'rain' | 'forest' | 'white'>('none');
   const [volume, setVolume] = useState(0.5);
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   
-  // App Data
-  const [subjects, setSubjects] = useState<Syllabus[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string>('General');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string>('none');
   
-  // Refs for Audio Objects
   const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('scholars_syllabuses_v2');
-    if (saved) setSubjects(JSON.parse(saved));
+    const savedTasks = localStorage.getItem('scholars_tasks');
+    if (savedTasks) setTasks(JSON.parse(savedTasks));
   }, []);
 
-  // Sync durations to localStorage
-  useEffect(() => {
-    localStorage.setItem('scholars_focus_settings', JSON.stringify(durations));
-  }, [durations]);
-
-  // Handle Mode Change or Duration Change
   useEffect(() => {
     if (!isActive) {
       setTimeLeft(durations[mode] * 60);
     }
   }, [mode, durations]);
 
-  // Handle Ambient Sound Playback
   useEffect(() => {
     if (ambientAudioRef.current) {
       ambientAudioRef.current.pause();
@@ -85,25 +63,13 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
       const audio = new Audio(AMBIENT_URLS[ambientSound as keyof typeof AMBIENT_URLS]);
       audio.loop = true;
       audio.volume = volume;
-      audio.play().catch(e => console.log("Audio play blocked by browser policy"));
+      audio.play().catch(() => {});
       ambientAudioRef.current = audio;
     }
 
-    return () => {
-      if (ambientAudioRef.current) {
-        ambientAudioRef.current.pause();
-      }
-    };
+    return () => ambientAudioRef.current?.pause();
   }, [ambientSound]);
 
-  // Update Volume
-  useEffect(() => {
-    if (ambientAudioRef.current) {
-      ambientAudioRef.current.volume = volume;
-    }
-  }, [volume]);
-
-  // Main Timer Effect
   useEffect(() => {
     let interval: any = null;
     if (isActive && timeLeft > 0) {
@@ -120,16 +86,19 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
   const handleSessionComplete = () => {
     const finishSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     finishSound.volume = volume;
-    finishSound.play();
+    finishSound.play().catch(() => {});
 
     if (mode === 'work') {
+      const newSessionCount = sessionsCompleted + 1;
+      setSessionsCompleted(newSessionCount);
       logSession(durations.work);
-      const msg = isBN ? 'দারুণ! আপনার ফোকাস সেশন শেষ হয়েছে। ৫ মিনিট বিরতি নিন।' : 'Great job! Focus session complete. Take a break.';
-      alert(msg);
-      setMode('short');
+      
+      if (newSessionCount % 4 === 0) {
+        setMode('long');
+      } else {
+        setMode('short');
+      }
     } else {
-      const msg = isBN ? 'বিরতি শেষ! আবার পড়ার সময় হয়েছে। ' : 'Break over! Time to get back to work.';
-      alert(msg);
       setMode('work');
     }
   };
@@ -138,7 +107,7 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     const logs: FocusLog[] = JSON.parse(localStorage.getItem('scholars_focus_logs') || '[]');
     const newLog: FocusLog = {
       id: Date.now().toString(),
-      subjectId: selectedSubject,
+      subjectId: selectedTaskId === 'none' ? 'General' : tasks.find(t => t.id === selectedTaskId)?.title || 'General',
       minutes: mins,
       date: new Date().toISOString()
     };
@@ -153,235 +122,193 @@ const FocusTimer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     setTimeLeft(durations[mode] * 60);
   };
 
-  const saveSettings = () => {
-    setDurations(tempDurations);
-    setShowSettings(false);
-  };
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const ambientSounds = [
-    { id: 'rain', icon: CloudRain, label: isBN ? 'বৃষ্টি' : 'Rain' },
-    { id: 'forest', icon: TreePine, label: isBN ? 'বন' : 'Forest' },
-    { id: 'white', icon: Wind, label: isBN ? 'বাতাস' : 'Wind' },
-  ];
+  const activeTaskObj = tasks.find(t => t.id === selectedTaskId);
 
-  const totalSeconds = durations[mode] * 60;
-  const progress = (timeLeft / totalSeconds) * 100;
-  
-  const modeColor = mode === 'work' ? settings.primaryColor : mode === 'short' ? '#10b981' : '#f59e0b';
-  const modeIcon = mode === 'work' ? <Brain size={20} /> : <Coffee size={20} />;
+  // Dynamic Theme Colors
+  const colors = {
+    work: settings.primaryColor,
+    short: '#10b981',
+    long: '#f59e0b'
+  };
 
   return (
-    <div className="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[80vh] animate-in fade-in zoom-in duration-500 pb-12">
+    <div className={`max-w-7xl mx-auto h-[calc(100vh-100px)] flex flex-col items-center justify-center transition-all duration-700 ${isZenMode ? 'p-0' : 'p-4'}`}>
       
-      {/* Header Info */}
-      <div className="text-center mb-10">
-        <h1 className="text-4xl font-black dark:text-white tracking-tight mb-2">
-          {isBN ? 'ফোকাস টাইমার' : 'Zen Focus Timer'}
-        </h1>
-        <p className="text-slate-400 font-medium">
-          {isBN ? 'গভীর মনোযোগের সাথে আপনার লক্ষ্য অর্জন করুন।' : 'Reach your flow state with deep concentration.'}
-        </p>
-      </div>
-
-      {/* Subject Picker & Mode Selector */}
-      <div className="flex flex-col md:flex-row gap-4 mb-12 w-full max-w-2xl">
-        <div className="flex-1 flex items-center gap-3 bg-white dark:bg-slate-900 px-6 py-4 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
-          <BookOpen size={18} className="text-slate-400" />
-          <div className="flex flex-col flex-1">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{isBN ? 'বিষয়:' : 'Studying:'}</span>
-            <select 
-              className="bg-transparent border-none text-sm font-bold focus:ring-0 dark:text-white cursor-pointer p-0"
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-            >
-              <option value="General">{isBN ? 'সাধারণ' : 'General Study'}</option>
-              {subjects.map(s => <option key={s.id} value={s.subject}>{s.subject}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex bg-white dark:bg-slate-900 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm relative">
-          {(['work', 'short', 'long'] as const).map((m) => (
-            <button 
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-6 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${mode === m ? 'text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-              style={mode === m ? { backgroundColor: modeColor } : {}}
-            >
-              {m === 'work' ? (isBN ? 'পমোডোরো' : 'Focus') : m === 'short' ? (isBN ? 'বিরতি' : 'Short') : (isBN ? 'দীর্ঘ বিরতি' : 'Long')}
-            </button>
-          ))}
-          <button 
-            onClick={() => { setShowSettings(!showSettings); setTempDurations(durations); }}
-            className={`ml-2 p-2 rounded-xl transition-all ${showSettings ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300 hover:text-slate-500'}`}
-          >
-            <SettingsIcon size={18} />
-          </button>
-        </div>
-      </div>
-
-      {/* Timer Settings Overlay */}
-      <AnimatePresence>
-        {showSettings && (
+      <AnimatePresence mode="wait">
+        {!isZenMode && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="mb-12 p-8 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl w-full max-w-2xl"
+            className="w-full max-w-2xl flex flex-col items-center mb-12"
           >
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">{isBN ? 'সময় নির্ধারণ করুন' : 'Custom Durations (min)'}</h3>
-              <div className="flex gap-2">
-                <button onClick={() => setShowSettings(false)} className="p-2 text-slate-400 hover:text-rose-500"><X size={20} /></button>
-                <button onClick={saveSettings} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg"><Check size={20} /></button>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-6">
-              {Object.keys(durations).map((key) => (
-                <div key={key} className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{key}</label>
-                  <input 
-                    type="number"
-                    min="1"
-                    max="120"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 text-center font-bold dark:text-white focus:ring-2 focus:ring-indigo-500/20"
-                    value={tempDurations[key as keyof typeof durations]}
-                    onChange={(e) => setTempDurations({ ...tempDurations, [key]: parseInt(e.target.value) || 1 })}
-                  />
-                </div>
+            <div className="flex bg-white dark:bg-slate-900 p-2 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 mb-8 w-full md:w-auto">
+              {(['work', 'short', 'long'] as const).map((m) => (
+                <button 
+                  key={m}
+                  onClick={() => { setMode(m); setIsActive(false); }}
+                  className={`px-8 py-3 rounded-[2rem] text-xs font-black uppercase tracking-widest transition-all ${mode === m ? 'text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                  style={mode === m ? { backgroundColor: colors[m] } : {}}
+                >
+                  {m === 'work' ? (isBN ? 'ফোকাস' : 'Focus') : m === 'short' ? (isBN ? 'ছোট বিরতি' : 'Short') : (isBN ? 'বড় বিরতি' : 'Long')}
+                </button>
               ))}
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-4 w-full">
+              <div className="flex-1 bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 flex items-center gap-4 group hover:border-indigo-200 transition-all shadow-sm">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-600 transition-colors">
+                  <Target size={20} />
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{isBN ? 'বর্তমান লক্ষ্য' : 'Focus Goal'}</p>
+                  <select 
+                    className="w-full bg-transparent border-none p-0 text-sm font-bold focus:ring-0 dark:text-white appearance-none cursor-pointer"
+                    value={selectedTaskId}
+                    onChange={(e) => setSelectedTaskId(e.target.value)}
+                  >
+                    <option value="none">{isBN ? 'সাধারণ পড়াশোনা' : 'General Study Session'}</option>
+                    {tasks.filter(t => !t.completed).map(t => (
+                      <option key={t.id} value={t.id}>{t.title}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 flex items-center gap-4 shadow-sm min-w-[200px]">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400">
+                  <Zap size={20} className="text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{isBN ? 'সেশন' : 'Streak'}</p>
+                  <div className="flex gap-1.5 mt-1">
+                    {[1, 2, 3, 4].map(s => (
+                      <div key={s} className={`w-3 h-1.5 rounded-full transition-all duration-500 ${sessionsCompleted >= s ? 'bg-indigo-500' : 'bg-slate-100 dark:bg-slate-800'}`} style={sessionsCompleted >= s ? { backgroundColor: colors.work } : {}} />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main Timer Display */}
-      <div className="relative w-80 h-80 flex items-center justify-center mb-12">
-        <div 
-          className={`absolute inset-0 rounded-full transition-all duration-1000 ${isActive ? 'opacity-20 animate-pulse' : 'opacity-0'}`}
-          style={{ backgroundColor: modeColor, transform: 'scale(1.1)' }}
-        />
-        <svg className="w-full h-full -rotate-90 relative z-10">
-          <circle
-            cx="160" cy="160" r="145"
-            className="stroke-slate-100 dark:stroke-slate-800/50"
-            strokeWidth="10"
-            fill="transparent"
-          />
-          <circle
-            cx="160" cy="160" r="145"
-            strokeWidth="10"
-            fill="transparent"
-            strokeDasharray={911}
-            strokeDashoffset={911 - (911 * progress) / 100}
-            strokeLinecap="round"
-            className="transition-all duration-1000 ease-linear"
+      <div className={`relative flex flex-col items-center justify-center transition-all duration-1000 ${isZenMode ? 'scale-125' : 'scale-100'}`}>
+        {/* The Fluid Blob - The Main "New Style" Element */}
+        <div className="relative w-72 h-72 md:w-96 md:h-96 flex items-center justify-center">
+          <motion.div
+            {...({
+              animate: {
+                borderRadius: isActive 
+                  ? ["40% 60% 70% 30% / 40% 50% 60% 50%", "30% 60% 70% 40% / 50% 60% 30% 60%", "60% 40% 30% 70% / 60% 30% 70% 40%", "40% 60% 70% 30% / 40% 50% 60% 50%"] 
+                  : "50% 50% 50% 50% / 50% 50% 50% 50%",
+                scale: isActive ? [1, 1.05, 1] : 1,
+              },
+              transition: {
+                borderRadius: { duration: 8, repeat: Infinity, ease: "easeInOut" },
+                scale: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+              }
+            } as any)}
+            className="absolute inset-0 shadow-2xl opacity-80 backdrop-blur-xl"
             style={{ 
-              stroke: modeColor,
-              filter: isActive ? `drop-shadow(0 0 8px ${modeColor}80)` : 'none'
+              backgroundColor: colors[mode],
+              boxShadow: `0 0 80px ${colors[mode]}4D`
             }}
           />
-        </svg>
-        <div className="absolute flex flex-col items-center z-20">
-          <div className="p-3 rounded-2xl mb-2" style={{ backgroundColor: `${modeColor}1A`, color: modeColor }}>
-            {modeIcon}
-          </div>
-          <span className="text-7xl font-black tracking-tighter text-slate-800 dark:text-white tabular-nums">
-            {formatTime(timeLeft)}
-          </span>
-          <span className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-2">
-            {mode === 'work' ? (isBN ? 'মনোযোগ দিন' : 'Focus Mode') : (isBN ? 'বিশ্রাম' : 'Break Time')}
-          </span>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center gap-8 mb-16 relative">
-        <button 
-          onClick={resetTimer}
-          className="p-5 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 transition-all hover:scale-110 active:scale-95 text-slate-400 hover:text-rose-500"
-        >
-          <RotateCcw className="w-6 h-6" />
-        </button>
-
-        <button 
-          onClick={toggleTimer}
-          className="p-10 text-white rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center relative overflow-hidden group"
-          style={{ backgroundColor: modeColor }}
-        >
-          <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-          {isActive ? <Pause className="w-12 h-12 fill-current" /> : <Play className="w-12 h-12 fill-current ml-2" />}
-        </button>
-
-        <div className="relative">
-          <button 
-            onClick={() => setShowVolumeSlider(!showVolumeSlider)}
-            className={`p-5 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 transition-all hover:scale-110 active:scale-95 ${showVolumeSlider ? 'text-indigo-600' : 'text-slate-400'}`}
-            style={showVolumeSlider ? { color: modeColor } : {}}
-          >
-            {volume === 0 ? <VolumeX size={24} /> : volume < 0.5 ? <Volume1 size={24} /> : <Volume2 size={24} />}
-          </button>
           
-          <AnimatePresence>
-            {showVolumeSlider && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 p-4 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800"
-              >
-                <input 
-                  type="range" 
-                  min="0" max="1" step="0.01" 
-                  className="h-32 accent-indigo-600" 
-                  style={{ writingMode: 'bt-lr', appearance: 'slider-vertical' } as any}
-                  value={volume}
-                  onChange={(e) => setVolume(parseFloat(e.target.value))}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <AnimatePresence mode="wait">
+              {mode === 'work' ? (
+                <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="p-4 bg-white/20 rounded-3xl mb-4 text-white">
+                  <Brain size={32} />
+                </motion.div>
+              ) : (
+                <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="p-4 bg-white/20 rounded-3xl mb-4 text-white">
+                  <Coffee size={32} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
+            <h2 className="text-8xl md:text-9xl font-black text-white tracking-tighter tabular-nums drop-shadow-lg">
+              {formatTime(timeLeft)}
+            </h2>
+            
+            <p className="text-white/60 font-black uppercase tracking-[0.3em] text-[10px] mt-4">
+              {isActive ? (isBN ? 'গভীর মনোযোগ' : 'Deep Work') : (isBN ? 'প্রস্তুত হও' : 'Ready to Start')}
+            </p>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-8 mt-16 relative z-20">
+          <button 
+            onClick={resetTimer} 
+            className="p-5 bg-white dark:bg-slate-900 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 transition-all hover:scale-110 active:scale-95 text-slate-400"
+          >
+            <RotateCcw size={24} />
+          </button>
+
+          <button 
+            onClick={toggleTimer} 
+            className="p-10 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center bg-white dark:bg-slate-900 text-indigo-600 border border-slate-100 dark:border-slate-800"
+            style={{ color: colors[mode] }}
+          >
+            {isActive ? <Pause size={48} className="fill-current" /> : <Play size={48} className="fill-current ml-2" />}
+          </button>
+
+          <button 
+            onClick={() => setAmbientSound(ambientSound === 'none' ? 'rain' : 'none')} 
+            className={`p-5 rounded-full shadow-lg border transition-all hover:scale-110 active:scale-95 ${ambientSound !== 'none' ? 'bg-indigo-600 text-white border-transparent' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}
+            style={ambientSound !== 'none' ? { backgroundColor: colors[mode] } : {}}
+          >
+            {ambientSound === 'none' ? <VolumeX size={24} /> : <Volume2 size={24} />}
+          </button>
         </div>
       </div>
 
-      {/* Ambient Soundscape Section */}
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm w-full max-w-2xl">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-3">
-            <Sparkles className="w-4 h-4 text-indigo-500" /> {isBN ? 'জেন অ্যাম্বিয়েন্ট সাউন্ড' : 'Zen Ambient Soundscapes'}
-          </h3>
-          {ambientSound !== 'none' && (
-            <button 
-              onClick={() => setAmbientSound('none')}
-              className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:underline"
-            >
-              {isBN ? 'বন্ধ করুন' : 'Turn Off'}
-            </button>
-          )}
-        </div>
-        
-        <div className="grid grid-cols-3 gap-6">
-          {ambientSounds.map((sound) => (
+      {/* Footer Controls */}
+      <div className={`fixed bottom-12 flex gap-4 transition-all duration-700 ${isZenMode ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
+        <button 
+          onClick={() => setIsZenMode(!isZenMode)}
+          className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm text-xs font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-all"
+        >
+          {isZenMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          {isZenMode ? 'Exit Zen' : 'Zen Focus'}
+        </button>
+
+        <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          {(['rain', 'forest', 'white'] as const).map(sound => (
             <button
-              key={sound.id}
-              onClick={() => setAmbientSound(ambientSound === sound.id ? 'none' : sound.id as any)}
-              className={`flex flex-col items-center gap-3 p-6 rounded-[2rem] border-2 transition-all group ${ambientSound === sound.id ? 'text-white shadow-xl translate-y-[-4px]' : 'bg-slate-50/50 dark:bg-slate-800/50 border-transparent text-slate-400 hover:border-slate-200 hover:text-slate-600'}`}
-              style={ambientSound === sound.id ? { backgroundColor: modeColor, borderColor: modeColor } : {}}
+              key={sound}
+              onClick={() => setAmbientSound(ambientSound === sound ? 'none' : sound)}
+              className={`p-3 rounded-xl transition-all ${ambientSound === sound ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300 hover:text-slate-500'}`}
+              style={ambientSound === sound ? { color: colors[mode], backgroundColor: `${colors[mode]}1A` } : {}}
             >
-              <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${ambientSound === sound.id ? 'bg-white/20' : 'bg-white dark:bg-slate-800 shadow-sm'}`}>
-                <sound.icon className="w-6 h-6" />
-              </div>
-              <span className="text-xs font-black uppercase tracking-widest">{sound.label}</span>
+              <Waves size={16} />
             </button>
           ))}
         </div>
       </div>
+
+      <AnimatePresence>
+        {isZenMode && activeTaskObj && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed top-12 bg-white/10 backdrop-blur-md px-8 py-4 rounded-[2rem] border border-white/10 flex items-center gap-4"
+          >
+            <div className="p-2 bg-indigo-500 rounded-full text-white"><CheckCircle2 size={16} /></div>
+            <span className="text-white font-bold tracking-tight">{activeTaskObj.title}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
