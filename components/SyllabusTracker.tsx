@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ClipboardCheck, 
@@ -19,7 +19,8 @@ import {
   BrainCircuit,
   Loader2,
   Layers,
-  MoreVertical
+  MoreVertical,
+  FilterX
 } from 'lucide-react';
 import { AppSettings, Syllabus, Chapter, Topic } from '../types';
 import { fetchSyllabusForLevel } from '../services/geminiService';
@@ -264,11 +265,45 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     return Math.round((completed / allTopics.length) * 100);
   };
 
-  const filteredSyllabuses = syllabuses.filter(s => 
-    s.subject.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // --- Deep Search Logic ---
+  const filteredSyllabuses = useMemo(() => {
+    if (!searchTerm.trim()) return syllabuses;
+    const lowerSearch = searchTerm.toLowerCase();
+    
+    return syllabuses.filter(s => {
+      const subjectMatch = s.subject.toLowerCase().includes(lowerSearch);
+      const chapterMatch = s.chapters.some(c => c.title.toLowerCase().includes(lowerSearch));
+      const topicMatch = s.chapters.some(c => c.topics.some(t => t.title.toLowerCase().includes(lowerSearch)));
+      return subjectMatch || chapterMatch || topicMatch;
+    });
+  }, [syllabuses, searchTerm]);
 
   const activeSubject = syllabuses.find(s => s.id === activeSubjectId);
+
+  const displayChapters = useMemo(() => {
+    if (!activeSubject) return [];
+    if (!searchTerm.trim()) return activeSubject.chapters;
+
+    const lowerSearch = searchTerm.toLowerCase();
+    return activeSubject.chapters.map(chapter => {
+      const chapterMatch = chapter.title.toLowerCase().includes(lowerSearch);
+      const filteredTopics = chapter.topics.filter(topic => 
+        topic.title.toLowerCase().includes(lowerSearch)
+      );
+
+      // If chapter matches or has matching topics, we show it
+      if (chapterMatch || filteredTopics.length > 0) {
+        return {
+          ...chapter,
+          // If the chapter title itself matches, we could show all topics or just filtered.
+          // For a true filter experience, we show only matching topics if any, 
+          // otherwise if only chapter matches, show all its topics.
+          topics: filteredTopics.length > 0 ? filteredTopics : chapter.topics
+        };
+      }
+      return null;
+    }).filter((c): c is Chapter => c !== null);
+  }, [activeSubject, searchTerm]);
 
   return (
     <div className="max-w-7xl mx-auto h-[calc(100vh-120px)] flex gap-6 animate-in fade-in duration-500 relative">
@@ -338,11 +373,19 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
-              placeholder={isBN ? 'খুঁজুন...' : 'Search...'} 
+              placeholder={isBN ? 'বিষয় বা টপিক খুঁজুন...' : 'Search subject or topic...'} 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl pl-11 py-3 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 dark:text-white"
             />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-500 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           <div className="flex gap-2">
@@ -398,6 +441,11 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
               </div>
             );
           })}
+          {filteredSyllabuses.length === 0 && (
+            <div className="p-8 text-center text-slate-400 text-xs font-medium">
+              {isBN ? 'কিছু পাওয়া যায়নি' : 'No results found'}
+            </div>
+          )}
         </div>
       </div>
 
@@ -411,7 +459,14 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                     <h2 className="text-3xl font-black dark:text-white mb-1">{activeSubject.subject}</h2>
                     <button onClick={() => startEditing(activeSubject.id, activeSubject.subject)} className="p-2 text-slate-300 hover:text-indigo-600"><Edit3 size={18} /></button>
                   </div>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.2em]">{getProgress(activeSubject.chapters)}% Completed</p>
+                  <div className="flex items-center gap-4">
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.2em]">{getProgress(activeSubject.chapters)}% Completed</p>
+                    {searchTerm && (
+                      <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-lg border border-indigo-100 dark:border-indigo-800 uppercase">
+                        {isBN ? `ফিল্টার করা হয়েছে: "${searchTerm}"` : `Filtered by: "${searchTerm}"`}
+                      </span>
+                    )}
+                  </div>
                </div>
                <div className="flex gap-3">
                   <button onClick={() => addChapter(activeSubject.id)} className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 rounded-2xl text-xs font-black uppercase text-indigo-600 border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all"><Plus size={16} /> {isBN ? 'অধ্যায় যোগ করুন' : 'Add Chapter'}</button>
@@ -420,7 +475,7 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-10 space-y-12 no-scrollbar">
-               {activeSubject.chapters.map((chapter) => (
+               {displayChapters.map((chapter) => (
                  <section key={chapter.id} className="space-y-6">
                     <div className="flex items-center justify-between group/ch">
                        <div className="flex items-center gap-4 flex-1">
@@ -433,7 +488,12 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                               onKeyDown={(e) => e.key === 'Enter' && updateChapterName(activeSubject.id, chapter.id)}
                             />
                           ) : (
-                            <h3 className="text-2xl font-black dark:text-white leading-tight">{chapter.title}</h3>
+                            <h3 className="text-2xl font-black dark:text-white leading-tight">
+                              {chapter.title}
+                              {searchTerm && chapter.title.toLowerCase().includes(searchTerm.toLowerCase()) && (
+                                <span className="ml-3 inline-block w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                              )}
+                            </h3>
                           )}
                           <div className="opacity-0 group-hover/ch:opacity-100 flex gap-1 transition-opacity">
                              <button onClick={() => startEditing(chapter.id, chapter.title)} className="p-2 text-slate-400 hover:text-indigo-600"><Edit3 size={16} /></button>
@@ -444,39 +504,43 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       {chapter.topics.map((topic) => (
-                         <div
-                           key={topic.id}
-                           className={`group/tp relative flex items-center gap-5 p-6 rounded-[2.5rem] border transition-all text-left ${topic.completed ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30' : 'bg-white dark:bg-slate-800 border-slate-50 dark:border-slate-800 hover:border-indigo-200'}`}
-                         >
-                            <button
-                              onClick={() => toggleTopic(activeSubject.id, chapter.id, topic.id)}
-                              className={`shrink-0 transition-colors ${topic.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-400'}`}
-                            >
-                               {topic.completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
-                            </button>
-                            
-                            <div className="flex-1 overflow-hidden">
-                              {editingId === topic.id ? (
-                                <input 
-                                  autoFocus className="w-full bg-white dark:bg-slate-900 border-none rounded-lg px-2 py-1 text-base font-bold focus:ring-2 focus:ring-indigo-500/20"
-                                  value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                                  onBlur={() => updateTopicName(activeSubject.id, chapter.id, topic.id)}
-                                  onKeyDown={(e) => e.key === 'Enter' && updateTopicName(activeSubject.id, chapter.id, topic.id)}
-                                />
-                              ) : (
-                                <span className={`font-bold text-base block ${topic.completed ? 'line-through text-slate-300' : 'text-slate-700 dark:text-slate-200'}`}>
-                                   {topic.title}
-                                </span>
-                              )}
-                            </div>
+                       {chapter.topics.map((topic) => {
+                         const isMatch = searchTerm && topic.title.toLowerCase().includes(searchTerm.toLowerCase());
+                         
+                         return (
+                           <div
+                             key={topic.id}
+                             className={`group/tp relative flex items-center gap-5 p-6 rounded-[2.5rem] border transition-all text-left ${topic.completed ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30' : 'bg-white dark:bg-slate-800 border-slate-50 dark:border-slate-800 hover:border-indigo-200'} ${isMatch ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
+                           >
+                              <button
+                                onClick={() => toggleTopic(activeSubject.id, chapter.id, topic.id)}
+                                className={`shrink-0 transition-colors ${topic.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-400'}`}
+                              >
+                                 {topic.completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
+                              </button>
+                              
+                              <div className="flex-1 overflow-hidden">
+                                {editingId === topic.id ? (
+                                  <input 
+                                    autoFocus className="w-full bg-white dark:bg-slate-900 border-none rounded-lg px-2 py-1 text-base font-bold focus:ring-2 focus:ring-indigo-500/20"
+                                    value={editValue} onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={() => updateTopicName(activeSubject.id, chapter.id, topic.id)}
+                                    onKeyDown={(e) => e.key === 'Enter' && updateTopicName(activeSubject.id, chapter.id, topic.id)}
+                                  />
+                                ) : (
+                                  <span className={`font-bold text-base block ${topic.completed ? 'line-through text-slate-300' : 'text-slate-700 dark:text-slate-200'} ${isMatch ? 'text-indigo-600 dark:text-indigo-400' : ''}`}>
+                                     {topic.title}
+                                  </span>
+                                )}
+                              </div>
 
-                            <div className="opacity-0 group-hover/tp:opacity-100 flex gap-1 items-center transition-opacity ml-2">
-                               <button onClick={() => startEditing(topic.id, topic.title)} className="p-2 text-slate-400 hover:text-indigo-600"><Edit3 size={14} /></button>
-                               <button onClick={() => deleteTopic(activeSubject.id, chapter.id, topic.id)} className="p-2 text-slate-400 hover:text-rose-500"><X size={16} /></button>
-                            </div>
-                         </div>
-                       ))}
+                              <div className="opacity-0 group-hover/tp:opacity-100 flex gap-1 items-center transition-opacity ml-2">
+                                 <button onClick={() => startEditing(topic.id, topic.title)} className="p-2 text-slate-400 hover:text-indigo-600"><Edit3 size={14} /></button>
+                                 <button onClick={() => deleteTopic(activeSubject.id, chapter.id, topic.id)} className="p-2 text-slate-400 hover:text-rose-500"><X size={16} /></button>
+                              </div>
+                           </div>
+                         );
+                       })}
                        {chapter.topics.length === 0 && (
                          <button onClick={() => addTopic(activeSubject.id, chapter.id)} className="md:col-span-2 py-10 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-300 hover:border-indigo-300 hover:text-indigo-400 transition-all">
                            <Layers className="mb-2 opacity-20" size={32} />
@@ -486,6 +550,25 @@ const SyllabusTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                     </div>
                  </section>
                ))}
+
+               {displayChapters.length === 0 && (
+                  <div className="py-20 text-center space-y-4">
+                    <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-200">
+                      <FilterX size={40} />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-black dark:text-white">{isBN ? 'কোনো ফলাফল পাওয়া যায়নি' : 'No results matching your search'}</h4>
+                      <p className="text-slate-400 text-sm">{isBN ? 'আপনার সার্চ কিউয়ার্ডটি পরিবর্তন করে দেখুন।' : 'Try adjusting your search terms.'}</p>
+                      <button 
+                        onClick={() => setSearchTerm('')}
+                        className="mt-6 px-6 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest"
+                        style={{ backgroundColor: settings.primaryColor }}
+                      >
+                        {isBN ? 'সার্চ রিসেট করুন' : 'Reset Search'}
+                      </button>
+                    </div>
+                  </div>
+               )}
             </div>
           </>
         ) : (
